@@ -704,8 +704,15 @@
               <input type="text" id="cfg-udise" placeholder="11-digit UDISE code">
             </div>
             <div class="form-group">
-              <label>Circle</label>
-              <input type="text" id="cfg-circle" placeholder="e.g. Baruipur Circle">
+              <div class="form-group">
+  <label>Block Name</label>
+  <input type="text" id="cfg-block" placeholder="e.g. Bhangar I">
+</div>
+
+<div class="form-group">
+  <label>Circle Name</label>
+  <input type="text" id="cfg-circle" placeholder="e.g. Baruipur Circle">
+</div>
             </div>
             <div class="form-group">
               <label>District</label>
@@ -882,7 +889,15 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 /* ===== DATA LAYER ===== */
+const SUPABASE_URL = 'https://dfaqcivwthfjrgtehgpb.supabase.co/rest/v1/';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXFjaXZ3dGhmanJndGVoZ3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTAyODksImV4cCI6MjA5MzQ4NjI4OX0.z4AtmmtMvsQGTvUwMlVQGyTKIdXSHzwbpWDfbjbjIdE';
+
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 let students = [];
 let schoolConfig = {};
 let returnTargetId = null;
@@ -938,7 +953,7 @@ function openAddModal() {
 }
 function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
 
-function addStudent() {
+async function addStudent() {
   const name = document.getElementById('f-name').value.trim();
   const cls = document.getElementById('f-class').value;
   if (!name || !cls) { alert('Please enter student name and class.'); return; }
@@ -950,19 +965,19 @@ function addStudent() {
     .map(cb => cb.value);
 
   students.push({
-    id: uid(),
-    name,
-    class: cls,
-    gender: document.getElementById('f-gender').value,
-    daysAbsent: parseInt(document.getElementById('f-absent').value) || 0,
-    dateIdentified: document.getElementById('f-date').value,
-    signs,
-    actions,
-    notes: document.getElementById('f-notes').value.trim(),
-    returned: false,
-    dateReturned: '',
-    returnReason: ''
-  });
+  id: uid(),
+  name,
+  class: cls,
+  gender: document.getElementById('f-gender').value,
+  daysAbsent: parseInt(document.getElementById('f-absent').value) || 0,
+  dateIdentified: document.getElementById('f-date').value,
+  signs,
+  actions,
+  notes: document.getElementById('f-notes').value.trim(),
+  returned: false,
+  dateReturned: '',
+  returnReason: ''
+});;
   saveData();
   closeAddModal();
   renderDashboard();
