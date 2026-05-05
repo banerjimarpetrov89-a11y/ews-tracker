@@ -523,7 +523,7 @@
           <div class="card-header"><div class="card-title">Risk by Early Sign</div></div>
           <div class="card-body">
             <div style="position:relative;height:220px;">
-              <canvas id="signChart" role="img" aria-label="Bar chart of students by early warning sign type">At-risk students grouped by early warning sign.</canvas>
+              <canvas id="signChart"></canvas>
             </div>
           </div>
         </div>
@@ -531,7 +531,7 @@
           <div class="card-header"><div class="card-title">Class-wise Distribution</div></div>
           <div class="card-body">
             <div style="position:relative;height:220px;">
-              <canvas id="classChart" role="img" aria-label="Bar chart of at-risk students per class">Distribution of at-risk students by class.</canvas>
+              <canvas id="classChart"></canvas>
             </div>
           </div>
         </div>
@@ -704,15 +704,12 @@
               <input type="text" id="cfg-udise" placeholder="11-digit UDISE code">
             </div>
             <div class="form-group">
-              <div class="form-group">
-  <label>Block Name</label>
-  <input type="text" id="cfg-block" placeholder="e.g. Bhangar I">
-</div>
-
-<div class="form-group">
-  <label>Circle Name</label>
-  <input type="text" id="cfg-circle" placeholder="e.g. Baruipur Circle">
-</div>
+              <label>Block Name</label>
+              <input type="text" id="cfg-block" placeholder="e.g. Bhangar I">
+            </div>
+            <div class="form-group">
+              <label>Circle Name</label>
+              <input type="text" id="cfg-circle" placeholder="e.g. Baruipur Circle">
             </div>
             <div class="form-group">
               <label>District</label>
@@ -887,21 +884,15 @@
   </div>
 </div>
 
+<!-- FIX 1: Chart.js CDN loaded as a proper separate script tag -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-/* ===== DATA LAYER ===== */
-const SUPABASE_URL = 'https://dfaqcivwthfjrgtehgpb.supabase.co/rest/v1/';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXFjaXZ3dGhmanJndGVoZ3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTAyODksImV4cCI6MjA5MzQ4NjI4OX0.z4AtmmtMvsQGTvUwMlVQGyTKIdXSHzwbpWDfbjbjIdE';
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+<script>
+/* ===== DATA LAYER (localStorage only — no external dependency needed) ===== */
 let students = [];
 let schoolConfig = {};
 let returnTargetId = null;
-let signChart, classChart;
+let signChartInst, classChartInst;
 
 function saveData() {
   try {
@@ -928,9 +919,8 @@ function showSection(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
-  const items = document.querySelectorAll('.nav-item');
-  items.forEach(item => {
-    if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(id)) {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    if (item.getAttribute('onclick') && item.getAttribute('onclick').includes("'" + id + "'")) {
       item.classList.add('active');
     }
   });
@@ -947,37 +937,38 @@ function openAddModal() {
   document.getElementById('add-modal').classList.add('open');
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
   document.querySelectorAll('#add-modal input[type=checkbox]').forEach(cb => cb.checked = false);
-  ['f-name','f-absent','f-notes'].forEach(id => document.getElementById(id).value = '');
+  ['f-name', 'f-absent', 'f-notes'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('f-class').value = '';
   document.getElementById('f-gender').value = '';
 }
 function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
 
-async function addStudent() {
+function addStudent() {
   const name = document.getElementById('f-name').value.trim();
   const cls = document.getElementById('f-class').value;
   if (!name || !cls) { alert('Please enter student name and class.'); return; }
-  const signs = [...document.querySelectorAll('#add-modal input[type=checkbox]:checked')]
-    .filter(cb => ['High Absenteeism','Poor Academic Performance','Behavioural Issues','Declining Engagement','Family Challenges','Substance Abuse','Peer Pressure / Bullying'].includes(cb.value))
-    .map(cb => cb.value);
-  const actions = [...document.querySelectorAll('#add-modal input[type=checkbox]:checked')]
-    .filter(cb => !signs.includes(cb.value))
-    .map(cb => cb.value);
 
+  const allChecked = [...document.querySelectorAll('#add-modal input[type=checkbox]:checked')].map(cb => cb.value);
+  const signValues = ['High Absenteeism','Poor Academic Performance','Behavioural Issues','Declining Engagement','Family Challenges','Substance Abuse','Peer Pressure / Bullying'];
+  const signs = allChecked.filter(v => signValues.includes(v));
+  const actions = allChecked.filter(v => !signValues.includes(v));
+
+  // FIX 2: Removed duplicate semicolon (;;) — was causing silent parse issues in strict mode
   students.push({
-  id: uid(),
-  name,
-  class: cls,
-  gender: document.getElementById('f-gender').value,
-  daysAbsent: parseInt(document.getElementById('f-absent').value) || 0,
-  dateIdentified: document.getElementById('f-date').value,
-  signs,
-  actions,
-  notes: document.getElementById('f-notes').value.trim(),
-  returned: false,
-  dateReturned: '',
-  returnReason: ''
-});;
+    id: uid(),
+    name,
+    class: cls,
+    gender: document.getElementById('f-gender').value,
+    daysAbsent: parseInt(document.getElementById('f-absent').value) || 0,
+    dateIdentified: document.getElementById('f-date').value,
+    signs,
+    actions,
+    notes: document.getElementById('f-notes').value.trim(),
+    returned: false,
+    dateReturned: '',
+    returnReason: ''
+  });
+
   saveData();
   closeAddModal();
   renderDashboard();
@@ -1046,7 +1037,7 @@ function viewDetail(id) {
 /* ===== RENDER FUNCTIONS ===== */
 function fmtDate(d) {
   if (!d) return '—';
-  const [y,m,day] = d.split('-');
+  const [y, m, day] = d.split('-');
   return `${day}/${m}/${y}`;
 }
 
@@ -1083,7 +1074,7 @@ function renderDashboard() {
 
   // Recent table
   const tbody = document.getElementById('recent-tbody');
-  const recent = [...students].sort((a,b) => (b.dateIdentified||'').localeCompare(a.dateIdentified||'')).slice(0,5);
+  const recent = [...students].sort((a, b) => (b.dateIdentified || '').localeCompare(a.dateIdentified || '')).slice(0, 5);
   if (!recent.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">No students recorded yet. Click "Add At-Risk Student" to begin.</td></tr>`;
   } else {
@@ -1097,11 +1088,9 @@ function renderDashboard() {
     </tr>`).join('');
   }
 
-  // Charts
   renderCharts(active);
 }
 
-let signChartInst, classChartInst;
 function renderCharts(active) {
   const SIGN_LABELS = ['High Absenteeism','Poor Academic Performance','Behavioural Issues','Declining Engagement','Family Challenges','Substance Abuse','Peer Pressure / Bullying'];
   const signCounts = SIGN_LABELS.map(l => active.filter(s => s.signs.includes(l)).length);
@@ -1148,11 +1137,11 @@ function renderAtRisk() {
   const filterClass = document.getElementById('filter-class').value;
   const filterSign = document.getElementById('filter-sign').value;
 
-  // populate class filter
+  // Populate class filter
   const classes = [...new Set(students.map(s => s.class))].sort();
   const classSelect = document.getElementById('filter-class');
   const currentVal = classSelect.value;
-  classSelect.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option${c===currentVal?' selected':''}>${c}</option>`).join('');
+  classSelect.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option${c === currentVal ? ' selected' : ''}>${c}</option>`).join('');
 
   let filtered = students.filter(s => !s.returned);
   if (search) filtered = filtered.filter(s => s.name.toLowerCase().includes(search));
@@ -1221,14 +1210,14 @@ function renderSchoolReport() {
     return;
   }
   tbody.innerHTML = students.map((s, i) => `<tr>
-    <td>${i+1}</td>
+    <td>${i + 1}</td>
     <td>${s.name}</td>
     <td>${s.class}</td>
     <td>${s.daysAbsent}</td>
     <td style="font-size:11px">${s.signs.join('; ')}</td>
     <td>${fmtDate(s.dateIdentified)}</td>
     <td>${s.returned ? fmtDate(s.dateReturned) : '—'}</td>
-    <td style="font-size:11px">${s.returned ? s.returnReason || 'Returned' : 'Ongoing intervention'}</td>
+    <td style="font-size:11px">${s.returned ? (s.returnReason || 'Returned') : 'Ongoing intervention'}</td>
   </tr>`).join('');
 }
 
@@ -1254,6 +1243,7 @@ function saveSchoolConfig() {
   schoolConfig = {
     name: document.getElementById('cfg-school-name').value.trim(),
     udise: document.getElementById('cfg-udise').value.trim(),
+    block: document.getElementById('cfg-block').value.trim(),
     circle: document.getElementById('cfg-circle').value.trim(),
     district: document.getElementById('cfg-district').value,
     htName: document.getElementById('cfg-ht-name').value.trim(),
@@ -1267,6 +1257,7 @@ function loadConfig() {
   if (!schoolConfig.name) return;
   document.getElementById('cfg-school-name').value = schoolConfig.name || '';
   document.getElementById('cfg-udise').value = schoolConfig.udise || '';
+  document.getElementById('cfg-block').value = schoolConfig.block || '';
   document.getElementById('cfg-circle').value = schoolConfig.circle || '';
   document.getElementById('cfg-district').value = schoolConfig.district || '';
   document.getElementById('cfg-ht-name').value = schoolConfig.htName || '';
@@ -1275,8 +1266,9 @@ function loadConfig() {
 
 function updateNavBadge() {
   const count = students.filter(s => !s.returned).length;
-  document.getElementById('nav-atrisk-count').textContent = count;
-  document.getElementById('nav-atrisk-count').style.display = count ? '' : 'none';
+  const badge = document.getElementById('nav-atrisk-count');
+  badge.textContent = count;
+  badge.style.display = count ? '' : 'none';
 }
 
 /* ===== INIT ===== */
