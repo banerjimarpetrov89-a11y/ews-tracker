@@ -1,0 +1,315 @@
+╔══════════════════════════════════════════════════════════════════╗
+║         EWS TRACKER — WEST BENGAL SCHOOLS                        ║
+║         Setup & Usage Guide   (v2.0 — Multi-School Edition)      ║
+║         PBSSM · UNICEF · Paschim Banga Samagra Shiksha Mission   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+────────────────────────────────────────────────────────────────────
+  WHAT THIS APP DOES
+────────────────────────────────────────────────────────────────────
+  The EWS Tracker is a digital Early Warning System for West Bengal
+  schools. It lets Head Teachers and EWS coordinators:
+
+  ✔ Track students who are at-risk of dropping out
+  ✔ Record early signs (absenteeism, poor academics, etc.)
+  ✔ Log remedial actions taken (home visits, PTMs, etc.)
+  ✔ Mark students who have returned to school
+  ✔ Generate PBSSM-prescribed school and circle-level reports
+  ✔ Sync data across all devices (mobile + PC) in real time
+
+  Multiple schools can register separately. Each school sees
+  only its own students. All data is stored in a shared cloud
+  database (Supabase) — no server setup needed.
+
+────────────────────────────────────────────────────────────────────
+  STEP 1 — SUPABASE DATABASE SETUP (One-time, Admin only)
+────────────────────────────────────────────────────────────────────
+  The app uses Supabase (free tier) as its cloud database.
+  If a Supabase project has already been created and the URL/Key
+  are already in the HTML file, skip Steps 1a–1c.
+
+  1a. Go to https://supabase.com and create a free account.
+
+  1b. Create a new project. Choose a name like "ews-tracker-wb"
+      and set a strong database password. Select the nearest region
+      (Singapore or Mumbai).
+
+  1c. Once the project is ready, go to:
+      Project Settings → API
+      Copy:
+        - Project URL  (e.g. https://xxxx.supabase.co)
+        - anon / public key  (a long JWT string)
+
+      Open the HTML file in Notepad and replace:
+        const SB_URL  = 'https://YOUR_PROJECT.supabase.co';
+        const SB_KEY  = 'YOUR_ANON_KEY';
+
+────────────────────────────────────────────────────────────────────
+  STEP 2 — CREATE DATABASE TABLES (Run this SQL once)
+────────────────────────────────────────────────────────────────────
+  In your Supabase dashboard, go to:
+  SQL Editor → New Query
+
+  Paste and run the following SQL:
+
+  ┌──────────────────────────────────────────────────────────────┐
+  │                                                              │
+  │  -- SCHOOLS TABLE                                            │
+  │  CREATE TABLE schools (                                      │
+  │    id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,   │
+  │    name       text NOT NULL,                                 │
+  │    udise      text UNIQUE NOT NULL,                          │
+  │    passcode   text NOT NULL,                                 │
+  │    block      text,                                          │
+  │    circle     text,                                          │
+  │    district   text,                                          │
+  │    ht_name    text,                                          │
+  │    enrolled   integer DEFAULT 0,                             │
+  │    created_at timestamptz DEFAULT now()                      │
+  │  );                                                          │
+  │                                                              │
+  │  -- STUDENTS TABLE                                           │
+  │  CREATE TABLE students (                                     │
+  │    id              uuid DEFAULT gen_random_uuid() PRIMARY KEY,│
+  │    school_id       uuid REFERENCES schools(id)               │
+  │                        ON DELETE CASCADE,                    │
+  │    name            text NOT NULL,                            │
+  │    class           text NOT NULL,                            │
+  │    gender          text,                                     │
+  │    days_absent     integer DEFAULT 0,                        │
+  │    date_identified date,                                     │
+  │    signs           jsonb DEFAULT '[]',                       │
+  │    actions         jsonb DEFAULT '[]',                       │
+  │    notes           text,                                     │
+  │    returned        boolean DEFAULT false,                    │
+  │    date_returned   date,                                     │
+  │    return_reason   text,                                     │
+  │    created_at      timestamptz DEFAULT now()                 │
+  │  );                                                          │
+  │                                                              │
+  │  -- ENABLE ROW LEVEL SECURITY                                │
+  │  ALTER TABLE schools  ENABLE ROW LEVEL SECURITY;             │
+  │  ALTER TABLE students ENABLE ROW LEVEL SECURITY;             │
+  │                                                              │
+  │  -- ALLOW ANON ACCESS (required for the app to work)         │
+  │  CREATE POLICY "anon_all_schools"                            │
+  │    ON schools FOR ALL TO anon                                │
+  │    USING (true) WITH CHECK (true);                           │
+  │                                                              │
+  │  CREATE POLICY "anon_all_students"                           │
+  │    ON students FOR ALL TO anon                               │
+  │    USING (true) WITH CHECK (true);                           │
+  │                                                              │
+  └──────────────────────────────────────────────────────────────┘
+
+  ✔ Once this SQL runs without errors, your database is ready.
+
+────────────────────────────────────────────────────────────────────
+  STEP 3 — DISTRIBUTE THE HTML FILE
+────────────────────────────────────────────────────────────────────
+  The entire app is a single HTML file.
+
+  ➤ Share the HTML file via WhatsApp, email, or Google Drive.
+  ➤ Any teacher or coordinator opens it in a browser (Chrome
+    recommended) on their phone or computer.
+  ➤ No installation needed. No app store. No internet hosting needed
+    (the HTML file works from the device itself).
+
+  ⚠  IMPORTANT: The Supabase URL and Key must be correctly set
+     in the file before sharing. All copies should have the
+     same URL and Key to access the shared database.
+
+────────────────────────────────────────────────────────────────────
+  HOW TO USE — REGISTERING YOUR SCHOOL (First time)
+────────────────────────────────────────────────────────────────────
+  1. Open the HTML file in a browser.
+  2. Click the "Register School" tab.
+  3. Fill in:
+       - School Name (full name)
+       - UDISE Code (your school's 11-digit code)
+       - District
+       - Block and Circle (optional but recommended)
+       - Head Teacher Name
+       - Total Enrolled Students
+       - Passcode — choose any passcode your school will use
+         to log in. Share this passcode only with authorised
+         staff. Example: "rk2024" or "ews#school123"
+  4. Click "Register School".
+  5. You will be logged in automatically.
+
+  ⚠  Each UDISE code can only be registered once.
+     If already registered, use the Login tab instead.
+
+────────────────────────────────────────────────────────────────────
+  HOW TO USE — LOGGING IN (Subsequent visits)
+────────────────────────────────────────────────────────────────────
+  1. Open the HTML file.
+  2. The app may auto-login if your session is saved.
+  3. If not, enter:
+       - UDISE Code
+       - Passcode (the one set during registration)
+  4. Click "Login".
+
+  The app remembers your session on the same browser/device.
+  You will not need to log in every time on the same phone/PC.
+
+────────────────────────────────────────────────────────────────────
+  HOW TO USE — ADDING AN AT-RISK STUDENT
+────────────────────────────────────────────────────────────────────
+  1. From the Dashboard or At-Risk Students page, click
+     "+ Add At-Risk Student".
+  2. Fill in:
+       - Student Name (required)
+       - Class (required)
+       - Days Absent in last month
+       - Date identified as at-risk
+       - Gender
+  3. Check all applicable Early Signs:
+       □ High Absenteeism
+       □ Poor Academic Performance
+       □ Behavioural Issues
+       □ Declining School Engagement
+       □ Family Challenges
+       □ Substance Abuse
+       □ Peer Pressure / Bullying
+  4. Check all Remedial Actions already initiated:
+       □ Buddy system activated
+       □ Phone call to parents
+       □ Teacher home visit
+       □ SMC joint visit
+       □ Mentor assigned
+       □ PTM discussion
+       □ Referred to external services
+  5. Add any notes.
+  6. Click "Save Student".
+
+────────────────────────────────────────────────────────────────────
+  HOW TO USE — MARKING A STUDENT AS RETURNED
+────────────────────────────────────────────────────────────────────
+  1. Go to "At-Risk Students" from the sidebar.
+  2. Find the student. Click the green "Returned" button.
+  3. Enter the date the student came back and the reason/
+     intervention that helped.
+  4. Click "Mark Returned".
+  5. The student moves to the "Returned" section and counts
+     towards your school's success metrics.
+
+────────────────────────────────────────────────────────────────────
+  HOW TO USE — GENERATING REPORTS
+────────────────────────────────────────────────────────────────────
+  SCHOOL REPORT (Head Teacher's Register):
+  → Click "School Report" in the sidebar.
+  → This generates the PBSSM-prescribed table of all at-risk
+    and returned students with all required fields.
+  → Click "Print" to print or save as PDF.
+  → Sign and date the printed copy for your register.
+
+  CIRCLE REPORT (SI/AI Format):
+  → Click "Circle Report" in the sidebar.
+  → Provides the bi-monthly aggregated summary for submission
+    to the School Inspector / Assistant Inspector.
+  → Submit once every two months as required.
+
+────────────────────────────────────────────────────────────────────
+  PBSSM / UNICEF EWS THRESHOLDS (Quick Reference)
+────────────────────────────────────────────────────────────────────
+
+  Indicator                Threshold    Action Required
+  ─────────────────────────────────────────────────────
+  Absence (fortnight)      > 5 days     Teacher home visit
+  Absence (month)          > 7 days     Flag as at-risk
+  Consecutive absence      > 3 days     Phone call to parents
+  SMC joint visit trigger  > 10 days    Joint SMC + teacher visit
+  SI/AI report cycle       Every 2 mths Submit circle report
+
+────────────────────────────────────────────────────────────────────
+  MULTI-SCHOOL & SYNC DETAILS
+────────────────────────────────────────────────────────────────────
+  ✔ Each school registers separately with its own UDISE + passcode.
+  ✔ Each school sees only its own students — no data crossover.
+  ✔ Any number of schools can use the same shared database.
+  ✔ Any device (phone, tablet, PC) with the same HTML file and
+    internet access can log in as a school.
+  ✔ When online, all changes sync instantly to the cloud database.
+  ✔ When offline, changes are saved locally and synced automatically
+    when the device reconnects to the internet.
+  ✔ The green dot in the top bar = online. Red dot = offline.
+
+────────────────────────────────────────────────────────────────────
+  TROUBLESHOOTING
+────────────────────────────────────────────────────────────────────
+  Problem: Cannot login — "Invalid UDISE or passcode"
+  Solution: Make sure the UDISE code matches exactly (no spaces).
+            Passcode is case-sensitive. If forgotten, contact the
+            person who registered the school or check your
+            Supabase schools table directly.
+
+  Problem: "Registration failed" when trying to register
+  Solution: Your UDISE may already be registered. Use the Login
+            tab with the UDISE code + original passcode.
+
+  Problem: Data not loading / blank screens
+  Solution: Check your internet connection. The app will show a
+            red dot (offline) and use cached data until reconnected.
+            Reload the page after reconnecting.
+
+  Problem: Supabase error "relation does not exist"
+  Solution: The SQL tables have not been created yet. Go to
+            Supabase SQL Editor and run the SQL in Step 2 above.
+
+  Problem: Supabase error "row-level security policy violation"
+  Solution: The RLS policies are missing. Run the CREATE POLICY
+            statements from Step 2 again.
+
+  Problem: App loads but shows auth screen even after login
+  Solution: Browser may have blocked localStorage. Try Chrome
+            (not in Incognito mode). Allow cookies/site data.
+
+  Problem: Charts not visible
+  Solution: The chart library loads from the internet (Cloudflare
+            CDN). Check your internet connection and reload.
+
+────────────────────────────────────────────────────────────────────
+  TECHNICAL NOTES (for IT coordinators)
+────────────────────────────────────────────────────────────────────
+  Database:     Supabase (PostgreSQL) — free tier supports up to
+                500 MB storage and 2 GB data transfer per month,
+                which is ample for hundreds of schools.
+
+  Auth model:   Simple passcode per school (no email/OTP needed).
+                For higher security, consider upgrading to Supabase
+                Auth in a future version.
+
+  Offline:      Uses browser localStorage as a local cache.
+                Temporary IDs (prefix "local_") are used for
+                records added offline; these do not sync back
+                automatically in this version — advise users to
+                add records while online when possible.
+
+  File hosting: The app needs no server. The HTML file is
+                self-contained. It can be hosted on any static
+                hosting (GitHub Pages, Netlify, Google Drive
+                preview) for easier sharing via URL.
+
+  Browser:      Works on Chrome, Firefox, Edge, Safari.
+                Tested on Android Chrome and iOS Safari.
+                Minimum screen: 360px wide.
+
+────────────────────────────────────────────────────────────────────
+  VERSION HISTORY
+────────────────────────────────────────────────────────────────────
+  v1.0  Initial release — single-school, localStorage only
+  v2.0  Multi-school registration, Supabase cloud sync,
+        mobile responsive, offline mode, session auto-restore
+
+────────────────────────────────────────────────────────────────────
+  SUPPORT & FEEDBACK
+────────────────────────────────────────────────────────────────────
+  For technical issues, contact your district EWS coordinator
+  or the PBSSM state office.
+
+  This app was developed to support the PBSSM–UNICEF Early
+  Warning System initiative for out-of-school children in
+  West Bengal.
+
+════════════════════════════════════════════════════════════════════
