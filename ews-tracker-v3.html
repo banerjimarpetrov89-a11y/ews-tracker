@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EWS Tracker — PBSSM West Bengal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ═══ TOKENS ═══ */
+:root {
+  /* School palette */
+  --bg:#f0f3fa; --surface:#fff; --surface2:#e8edf8; --surface3:#f7f9ff;
+  --border:#d8e0f0; --primary:#1b3d6f; --primary-lt:#2657a0; --primary-xl:#e6edf8;
+  --accent:#d95b26; --green:#0d7a52; --green-bg:#edf7f3;
+  --warn:#b87200; --warn-bg:#fff7e0;
+  --red:#b83232; --red-bg:#fdf0f0;
+  --text:#18202e; --text2:#445168; --text3:#8a96b0;
+  --radius:12px; --r6:6px; --shadow:0 2px 16px rgba(27,61,111,.09); --shadow-lg:0 8px 40px rgba(27,61,111,.18);
+  --nav-w:210px;
+
+  /* Admin palette */
+  --adm-bg:#0d1b2e; --adm-surface:#122340; --adm-surface2:#1a3358;
+  --adm-border:#1e3f6a; --adm-text:#e8eff8; --adm-text2:#94aec8; --adm-text3:#4d6a8a;
+  --adm-accent:#f59e0b; --adm-accent-bg:rgba(245,158,11,.12);
+  --adm-green:#22c55e; --adm-red:#ef4444; --adm-blue:#60a5fa;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+/* ── LOADING ── */
+#loading-overlay{position:fixed;inset:0;background:var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px;transition:opacity .4s}
+#loading-overlay.fade{opacity:0;pointer-events:none}
+.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{color:rgba(255,255,255,.65);font-size:13px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;right:20px;background:#1a2440;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow-lg);z-index:9000;transition:all .3s;opacity:0;transform:translateY(8px);pointer-events:none;max-width:320px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.err{background:var(--red)}
+#toast.ok{background:var(--green)}
+
+/* ══════════════════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════════════════ */
+#auth-screen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0d1b2e 0%,#1b3d6f 50%,#0d1b2e 100%)}
+#auth-screen.show{display:flex}
+.auth-card{background:#fff;border-radius:20px;width:100%;max-width:500px;box-shadow:var(--shadow-lg);overflow:hidden}
+.auth-top{background:var(--primary);padding:26px 28px 22px;color:#fff;text-align:center}
+.auth-logo{font-size:34px;margin-bottom:8px}
+.auth-title{font-family:'Lora',serif;font-size:21px;font-weight:600;margin-bottom:3px}
+.auth-sub{font-size:11px;opacity:.6}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border)}
+.auth-tab{flex:1;padding:13px 6px;text-align:center;font-size:12px;font-weight:500;cursor:pointer;color:var(--text3);border:none;border-bottom:2px solid transparent;background:none;font-family:'Outfit',sans-serif;transition:all .2s}
+.auth-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.auth-tab.admin-tab.active{color:#d97706;border-bottom-color:#d97706}
+.auth-body{padding:22px 26px 26px}
+.auth-panel{display:none}.auth-panel.active{display:block}
+.auth-form{display:flex;flex-direction:column;gap:13px}
+.auth-btn{width:100%;padding:11px;border:none;border-radius:var(--r6);font-size:14px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:background .2s}
+.auth-btn.school{background:var(--primary);color:#fff}
+.auth-btn.school:hover{background:var(--primary-lt)}
+.auth-btn.admin-btn{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff}
+.auth-btn.admin-btn:hover{background:linear-gradient(135deg,#b45309,#d97706)}
+.auth-btn:disabled{opacity:.6;cursor:not-allowed}
+.auth-err{background:var(--red-bg);color:var(--red);border:1px solid #f0c0c0;border-radius:8px;padding:9px 12px;font-size:12px;display:none}
+.auth-err.show{display:block}
+.auth-ok{background:var(--green-bg);color:var(--green);border:1px solid #b0dcc8;border-radius:8px;padding:9px 12px;font-size:12px;display:none}
+.auth-ok.show{display:block}
+.admin-login-note{background:var(--adm-accent-bg);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:10px 13px;font-size:12px;color:#92400e;margin-bottom:4px}
+
+/* ══════════════════════════════════════════════
+   SCHOOL APP
+══════════════════════════════════════════════ */
+#school-app{display:none;flex-direction:column;height:100vh}
+#school-app.show{display:flex}
+
+/* School Header */
+.s-header{background:var(--primary);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:54px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.2);position:relative;z-index:50}
+.s-header-l{display:flex;align-items:center;gap:12px}
+.hamburger{display:none;flex-direction:column;gap:4px;cursor:pointer;padding:6px;border:none;background:none}
+.hamburger span{width:20px;height:2px;background:#fff;border-radius:2px;transition:all .2s}
+.logo-mk{width:30px;height:30px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.h-t1{font-size:14px;font-weight:600;letter-spacing:-.2px}
+.h-t2{font-size:10px;opacity:.6}
+.s-header-r{display:flex;align-items:center;gap:10px}
+.sync-wrap{display:flex;align-items:center;gap:5px;font-size:11px;opacity:.75}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4caf50}
+.sync-dot.off{background:#f44336}
+.sync-dot.syncing{background:#ff9800;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.school-chip-h{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:3px 11px;font-size:12px;font-weight:500;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:'Outfit',sans-serif;transition:background .2s}
+.hdr-btn:hover{background:rgba(255,255,255,.2)}
+
+/* School body */
+.s-body{display:flex;flex:1;overflow:hidden}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39}
+.nav-overlay.open{display:block}
+
+/* School nav */
+nav.s-nav{width:var(--nav-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 0;flex-shrink:0;overflow-y:auto;transition:transform .25s;z-index:40}
+.nav-lbl{font-size:10px;font-weight:600;letter-spacing:.9px;color:var(--text3);text-transform:uppercase;padding:10px 16px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 16px;cursor:pointer;color:var(--text2);font-size:13px;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:var(--surface2);color:var(--primary)}
+.nav-item.active{background:var(--primary-xl);color:var(--primary);font-weight:600;border-left-color:var(--primary)}
+.nav-icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--red-bg);color:var(--red);font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;min-width:22px;text-align:center}
+
+/* School main */
+main.s-main{flex:1;overflow-y:auto;padding:22px}
+
+/* ══════════════════════════════════════════════
+   ADMIN APP
+══════════════════════════════════════════════ */
+#admin-app{display:none;flex-direction:column;height:100vh;background:var(--adm-bg)}
+#admin-app.show{display:flex}
+
+/* Admin Header */
+.a-header{background:var(--adm-surface);border-bottom:1px solid var(--adm-border);padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:56px;flex-shrink:0;position:relative;z-index:50}
+.a-header-l{display:flex;align-items:center;gap:14px}
+.adm-logo{width:34px;height:34px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(245,158,11,.4)}
+.adm-htxt .t1{font-size:14px;font-weight:700;color:var(--adm-text);letter-spacing:-.2px}
+.adm-htxt .t2{font-size:10px;color:var(--adm-text3);letter-spacing:.3px;text-transform:uppercase}
+.adm-badge{background:var(--adm-accent-bg);border:1px solid rgba(245,158,11,.4);color:var(--adm-accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+.a-header-r{display:flex;align-items:center;gap:10px}
+.adm-refresh{background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.25);color:var(--adm-blue);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Outfit',sans-serif;transition:background .2s}
+.adm-refresh:hover{background:rgba(96,165,250,.2)}
+.adm-logout{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#ef4444;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Outfit',sans-serif}
+
+/* Admin body */
+.a-body{display:flex;flex:1;overflow:hidden}
+
+/* Admin nav */
+nav.a-nav{width:220px;background:var(--adm-surface);border-right:1px solid var(--adm-border);display:flex;flex-direction:column;padding:14px 0;flex-shrink:0;overflow-y:auto}
+.a-nav-lbl{font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--adm-text3);text-transform:uppercase;padding:12px 16px 4px}
+.a-nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--adm-text2);font-size:13px;border-left:3px solid transparent;transition:all .15s}
+.a-nav-item:hover{background:var(--adm-surface2);color:var(--adm-text)}
+.a-nav-item.active{background:rgba(245,158,11,.08);color:var(--adm-accent);font-weight:600;border-left-color:var(--adm-accent)}
+.a-nav-icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.a-sep{height:1px;background:var(--adm-border);margin:8px 16px}
+
+/* Admin main */
+main.a-main{flex:1;overflow-y:auto;padding:22px;background:var(--adm-bg)}
+
+/* ── SHARED LAYOUT ── */
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.page-title{font-family:'Lora',serif;font-size:19px;font-weight:600;color:var(--text)}
+.page-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.adm-page-title{font-family:'Lora',serif;font-size:19px;font-weight:600;color:var(--adm-text)}
+.adm-page-sub{font-size:12px;color:var(--adm-text3);margin-top:2px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r6);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;font-family:'Outfit',sans-serif}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-lt)}
+.btn-outline{background:#fff;color:var(--primary);border:1px solid var(--border)}.btn-outline:hover{background:var(--surface2)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-success{background:var(--green);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+.btn-adm{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:600}
+.btn-adm:hover{background:linear-gradient(135deg,#b45309,#d97706)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
+.stat-lbl{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.stat-val{font-size:30px;font-weight:700;color:var(--text);margin:3px 0;letter-spacing:-1.5px}
+.stat-meta{font-size:11px;color:var(--text3)}
+.stat-card.is-red .stat-val{color:var(--red)}.stat-card.is-warn .stat-val{color:var(--warn)}.stat-card.is-green .stat-val{color:var(--green)}
+
+/* Admin stat cards */
+.adm-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.adm-stat{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
+.adm-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.adm-stat.s-total::before{background:var(--adm-blue)}
+.adm-stat.s-risk::before{background:var(--adm-red)}
+.adm-stat.s-warn::before{background:var(--adm-accent)}
+.adm-stat.s-ok::before{background:var(--adm-green)}
+.adm-stat-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--adm-text3)}
+.adm-stat-val{font-size:32px;font-weight:700;margin:4px 0;letter-spacing:-2px}
+.adm-stat.s-total .adm-stat-val{color:var(--adm-blue)}
+.adm-stat.s-risk .adm-stat-val{color:var(--adm-red)}
+.adm-stat.s-warn .adm-stat-val{color:var(--adm-accent)}
+.adm-stat.s-ok .adm-stat-val{color:var(--adm-green)}
+.adm-stat-meta{font-size:11px;color:var(--adm-text3)}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
+.card-hdr{padding:13px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.card-body{padding:17px}
+
+/* Admin cards */
+.adm-card{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius);margin-bottom:18px;overflow:hidden}
+.adm-card-hdr{padding:13px 17px;border-bottom:1px solid var(--adm-border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.adm-card-title{font-size:13px;font-weight:600;color:var(--adm-text)}
+.adm-card-body{padding:17px}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface2);padding:9px 11px;text-align:left;font-weight:600;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid var(--border)}
+tbody td{padding:9px 11px;border-bottom:1px solid #edf0f8;color:var(--text);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f5f8ff}
+
+/* Admin table */
+.adm-tbl thead th{background:var(--adm-surface2);color:var(--adm-text2);border-bottom:1px solid var(--adm-border)}
+.adm-tbl tbody td{border-bottom:1px solid var(--adm-border);color:var(--adm-text)}
+.adm-tbl tbody tr:hover td{background:var(--adm-surface2)}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-blue{background:var(--primary-xl);color:var(--primary)}
+.badge-adm-red{background:rgba(239,68,68,.15);color:#ef4444}
+.badge-adm-warn{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge-adm-green{background:rgba(34,197,94,.15);color:#22c55e}
+.badge-adm-blue{background:rgba(96,165,250,.15);color:#60a5fa}
+
+/* ── FORMS ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;font-weight:500;color:var(--text2)}
+input,select,textarea{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Outfit',sans-serif;color:var(--text);background:#fff;outline:none;transition:border .15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(27,61,111,.08)}
+textarea{resize:vertical;min-height:68px}
+.cb-grp{display:flex;flex-direction:column;gap:7px}
+.cb-item{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2)}
+.cb-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,18,32,.6);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:16px;width:580px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:mIn .2s ease}
+@keyframes mIn{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-hdr{padding:16px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.modal-title{font-size:15px;font-weight:600}
+.modal-close{width:28px;height:28px;border-radius:50%;border:none;background:var(--surface2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+.modal-body{padding:17px 20px}
+.modal-footer{padding:13px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:#fff}
+
+/* ── ALERT ── */
+.alert{padding:10px 13px;border-radius:8px;font-size:13px;margin-bottom:14px;display:flex;align-items:flex-start;gap:8px}
+.alert-warn{background:var(--warn-bg);color:#7a4e00;border-left:3px solid var(--warn)}
+.alert-info{background:var(--primary-xl);color:var(--primary);border-left:3px solid var(--primary)}
+
+/* ── FILTER ROW ── */
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-row input,.filter-row select{width:auto;flex:1;min-width:110px;max-width:190px}
+
+/* ── SECTIONS ── */
+.section{display:none}.section.active{display:block}
+.adm-section{display:none}.adm-section.active{display:block}
+
+/* ── CHART ROW ── */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+
+/* ── SCHOOL BANNER ── */
+.school-banner{background:linear-gradient(135deg,var(--primary),var(--primary-lt));color:#fff;border-radius:var(--radius);padding:15px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.s-banner-name{font-size:15px;font-weight:600;font-family:'Lora',serif}
+.s-banner-meta{font-size:11px;opacity:.75;margin-top:2px}
+.s-chips{display:flex;gap:7px;flex-wrap:wrap}
+.s-chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px}
+
+/* ── REPORT ── */
+.report-box{background:var(--surface3);border:1px dashed var(--border);border-radius:var(--radius);padding:16px;margin-top:12px}
+.report-title{font-size:13px;font-weight:600;color:var(--primary);margin-bottom:10px}
+.report-table{width:100%;border-collapse:collapse;font-size:12px}
+.report-table th{background:var(--primary);color:#fff;padding:7px 9px;text-align:left}
+.report-table td{padding:6px 9px;border-bottom:1px solid var(--border)}
+.report-table tr:nth-child(even) td{background:var(--surface2)}
+
+/* ── ACTION ITEMS ── */
+.action-list{display:flex;flex-direction:column;gap:6px}
+.action-item{display:flex;align-items:flex-start;gap:9px;font-size:12px;padding:7px 10px;background:var(--surface2);border-radius:6px}
+.action-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0;background:var(--green)}
+
+/* ════════════════════════════════════════
+   ADMIN SPECIFIC COMPONENTS
+════════════════════════════════════════ */
+
+/* Risk Map */
+.risk-map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:4px}
+.risk-tile{background:var(--adm-surface2);border:1px solid var(--adm-border);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.risk-tile::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+.risk-tile.high::after{background:var(--adm-red)}
+.risk-tile.med::after{background:var(--adm-accent)}
+.risk-tile.low::after{background:var(--adm-green)}
+.risk-tile:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.rt-block{font-size:13px;font-weight:600;color:var(--adm-text);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.rt-block .rt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.risk-tile.high .rt-dot{background:var(--adm-red)}
+.risk-tile.med .rt-dot{background:var(--adm-accent)}
+.risk-tile.low .rt-dot{background:var(--adm-green)}
+.rt-schools{font-size:11px;color:var(--adm-text3);margin-bottom:8px}
+.rt-nums{display:flex;justify-content:space-between;font-size:12px}
+.rt-at-risk{color:var(--adm-red);font-weight:600}
+.rt-returned{color:var(--adm-green);font-weight:600}
+.rt-bar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:8px;overflow:hidden}
+.rt-bar-fill{height:100%;border-radius:2px;transition:width .5s}
+.risk-tile.high .rt-bar-fill{background:var(--adm-red)}
+.risk-tile.med .rt-bar-fill{background:var(--adm-accent)}
+.risk-tile.low .rt-bar-fill{background:var(--adm-green)}
+
+/* School Report Cards */
+.school-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.sc-card{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius);overflow:hidden;transition:all .2s}
+.sc-card:hover{border-color:rgba(245,158,11,.4);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.sc-card-top{padding:14px 16px;border-bottom:1px solid var(--adm-border)}
+.sc-card-name{font-size:14px;font-weight:600;color:var(--adm-text);margin-bottom:2px;line-height:1.3}
+.sc-card-udise{font-size:11px;color:var(--adm-text3);font-family:monospace}
+.sc-card-meta{font-size:11px;color:var(--adm-text2);margin-top:4px}
+.sc-card-body{padding:14px 16px}
+.sc-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.sc-metric{text-align:center}
+.sc-metric-val{font-size:22px;font-weight:700;letter-spacing:-1px}
+.sc-metric-lbl{font-size:10px;color:var(--adm-text3);text-transform:uppercase;letter-spacing:.4px}
+.sc-metric.m-enroll .sc-metric-val{color:var(--adm-blue)}
+.sc-metric.m-risk .sc-metric-val{color:var(--adm-red)}
+.sc-metric.m-ret .sc-metric-val{color:var(--adm-green)}
+.sc-risk-bar{margin-bottom:10px}
+.sc-risk-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--adm-text3);margin-bottom:4px}
+.sc-risk-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.sc-risk-fill{height:100%;border-radius:3px;transition:width .6s}
+.sc-top-sign{font-size:11px;color:var(--adm-text2);margin-bottom:10px}
+.sc-top-sign strong{color:var(--adm-accent)}
+.sc-footer{display:flex;justify-content:space-between;align-items:center}
+.sc-int-rate{font-size:11px;color:var(--adm-text3)}
+.sc-int-rate span{color:var(--adm-green);font-weight:600}
+
+/* Children detail filters (admin) */
+.adm-filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.adm-filter-row input,.adm-filter-row select{background:var(--adm-surface2);border:1px solid var(--adm-border);color:var(--adm-text);border-radius:6px;padding:7px 10px;font-size:12px;font-family:'Outfit',sans-serif;flex:1;min-width:120px;max-width:180px}
+.adm-filter-row input::placeholder{color:var(--adm-text3)}
+.adm-filter-row input:focus,.adm-filter-row select:focus{border-color:var(--adm-accent);outline:none}
+
+/* Vulnerability breakdown bars */
+.vuln-list{display:flex;flex-direction:column;gap:8px}
+.vuln-row{display:flex;align-items:center;gap:10px}
+.vuln-label{font-size:12px;color:var(--adm-text2);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vuln-track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.vuln-fill{height:100%;border-radius:4px;transition:width .6s}
+.vuln-count{font-size:12px;font-weight:600;color:var(--adm-text);width:30px;text-align:right;flex-shrink:0}
+
+/* Intervention effectiveness */
+.int-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.int-item{background:var(--adm-surface2);border-radius:8px;padding:12px}
+.int-name{font-size:12px;color:var(--adm-text2);margin-bottom:6px}
+.int-nums{display:flex;justify-content:space-between;align-items:center}
+.int-total{font-size:11px;color:var(--adm-text3)}
+.int-rate{font-size:16px;font-weight:700;color:var(--adm-green)}
+
+/* Summary strip */
+.summary-strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.ss-pill{background:var(--adm-surface2);border:1px solid var(--adm-border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--adm-text2)}
+.ss-pill strong{color:var(--adm-text)}
+
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.adm-empty{text-align:center;padding:40px 20px;color:var(--adm-text3)}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .hamburger{display:flex}
+  nav.s-nav{position:fixed;top:54px;left:0;bottom:0;transform:translateX(-100%);z-index:40;box-shadow:var(--shadow-lg)}
+  nav.s-nav.open{transform:translateX(0)}
+  main.s-main{padding:14px}
+  main.a-main{padding:14px}
+  .chart-row{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .school-chip-h{display:none}
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .adm-stat-grid{grid-template-columns:1fr 1fr}
+  .risk-map-grid{grid-template-columns:1fr 1fr}
+  .school-cards-grid{grid-template-columns:1fr}
+  .int-grid{grid-template-columns:1fr}
+  nav.a-nav{display:none}
+}
+@media(max-width:480px){
+  .stat-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .stat-val{font-size:24px}
+  table{font-size:12px}
+  thead th{font-size:10px;padding:7px 8px}
+  tbody td{padding:7px 8px}
+  .btn-sm{padding:4px 8px;font-size:11px}
+  .vuln-label{width:110px;font-size:11px}
+}
+@media print{
+  nav,.hamburger,.btn,.filter-row,.modal-overlay,#toast,
+  .adm-filter-row,.a-nav,.s-nav,.a-header,.s-header{display:none!important}
+  main.s-main,main.a-main{padding:0}
+  .card,.adm-card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p class="load-txt">Connecting to EWS database…</p>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-top">
+      <div class="auth-logo">📚</div>
+      <div class="auth-title">EWS Tracker</div>
+      <div class="auth-sub">Paschim Banga Samagra Shiksha Mission · PBSSM–UNICEF</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">School Login</button>
+      <button class="auth-tab" onclick="switchTab('register')">Register School</button>
+      <button class="auth-tab admin-tab" onclick="switchTab('admin')">Admin</button>
+    </div>
+    <div class="auth-body">
+
+      <!-- SCHOOL LOGIN -->
+      <div class="auth-panel active" id="panel-login">
+        <div class="auth-form">
+          <div id="l-err" class="auth-err"></div>
+          <div class="form-group"><label>UDISE Code</label><input type="text" id="l-udise" placeholder="11-digit UDISE code" maxlength="15"></div>
+          <div class="form-group"><label>Passcode</label><input type="password" id="l-pass" placeholder="Your school passcode" onkeydown="if(event.key==='Enter')loginSchool()"></div>
+          <button class="auth-btn school" id="btn-login" onclick="loginSchool()">Login to School →</button>
+        </div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="auth-panel" id="panel-register">
+        <div class="auth-form">
+          <div id="r-err" class="auth-err"></div>
+          <div id="r-ok" class="auth-ok"></div>
+          <div class="form-grid">
+            <div class="form-group full"><label>School Name *</label><input type="text" id="r-name" placeholder="Full school name"></div>
+            <div class="form-group"><label>UDISE Code *</label><input type="text" id="r-udise" placeholder="11-digit code" maxlength="15"></div>
+            <div class="form-group">
+              <label>District *</label>
+              <select id="r-dist">
+                <option value="">Select District</option>
+                <option>Alipurduar</option><option>Birbhum</option><option>Cooch Behar</option><option>Dakshin Dinajpur</option><option>GTA</option><option>Hooghly</option><option>Howrah</option><option>Jalpaiguri</option><option>Kalimpong</option><option>Kolkata</option><option>Malda</option><option>Murshidabad</option><option>Nadia</option><option>North 24 Parganas</option><option>Paschim Burdwan</option><option>Paschim Medinipur</option><option>Purba Burdwan</option><option>Purba Medinipur</option><option>South 24 Parganas</option><option>Uttar Dinajpur</option><option>Siliguri</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Block</label><input type="text" id="r-block" placeholder="e.g. Bhangar I"></div>
+            <div class="form-group"><label>Circle</label><input type="text" id="r-circle" placeholder="e.g. Baruipur Circle"></div>
+            <div class="form-group"><label>Head Teacher Name</label><input type="text" id="r-ht" placeholder="Full name"></div>
+            <div class="form-group"><label>Total Enrolled</label><input type="number" id="r-enroll" placeholder="e.g. 420"></div>
+            <div class="form-group"><label>Set Passcode *</label><input type="password" id="r-pass1" placeholder="Choose a passcode"></div>
+            <div class="form-group"><label>Confirm Passcode *</label><input type="password" id="r-pass2" placeholder="Repeat passcode"></div>
+          </div>
+          <button class="auth-btn school" id="btn-reg" onclick="registerSchool()">Register School →</button>
+        </div>
+      </div>
+
+      <!-- ADMIN LOGIN -->
+      <div class="auth-panel" id="panel-admin">
+        <div class="auth-form">
+          <div class="admin-login-note">🔐 Admin access is restricted to PBSSM district/state coordinators.</div>
+          <div id="a-err" class="auth-err"></div>
+          <div class="form-group"><label>Admin Username</label><input type="text" id="a-user" placeholder="Admin username" onkeydown="if(event.key==='Enter')loginAdmin()"></div>
+          <div class="form-group"><label>Admin Password</label><input type="password" id="a-pass" placeholder="Admin password" onkeydown="if(event.key==='Enter')loginAdmin()"></div>
+          <button class="auth-btn admin-btn" id="btn-admin" onclick="loginAdmin()">Admin Login →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCHOOL APP
+══════════════════════════════════════════════ -->
+<div id="school-app">
+  <div class="s-header">
+    <div class="s-header-l">
+      <button class="hamburger" onclick="toggleNav()" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div class="logo-mk">📘</div>
+      <div><div class="h-t1">Early Warning System</div><div class="h-t2">PBSSM · West Bengal</div></div>
+    </div>
+    <div class="s-header-r">
+      <div class="sync-wrap"><div class="sync-dot" id="sync-dot"></div><span id="sync-lbl">Online</span></div>
+      <div class="school-chip-h" id="hdr-school-name">—</div>
+      <button class="hdr-btn" onclick="logoutSchool()">↩ Logout</button>
+    </div>
+  </div>
+  <div class="s-body">
+    <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+    <nav class="s-nav" id="sidebar">
+      <div class="nav-lbl">Overview</div>
+      <div class="nav-item active" onclick="showSection('dashboard')"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="nav-lbl">Students</div>
+      <div class="nav-item" onclick="showSection('atrisk')"><span class="nav-icon">⚠</span>At-Risk Students<span class="nav-badge" id="nav-badge">0</span></div>
+      <div class="nav-item" onclick="showSection('returned')"><span class="nav-icon">✓</span>Returned</div>
+      <div class="nav-lbl">Reports</div>
+      <div class="nav-item" onclick="showSection('report-school')"><span class="nav-icon">📋</span>School Report</div>
+      <div class="nav-item" onclick="showSection('report-circle')"><span class="nav-icon">📈</span>Circle Report</div>
+      <div class="nav-lbl">Settings</div>
+      <div class="nav-item" onclick="showSection('settings')"><span class="nav-icon">⚙</span>School Info</div>
+    </nav>
+    <main class="s-main">
+
+      <!-- DASHBOARD -->
+      <div class="section active" id="section-dashboard">
+        <div class="page-hdr">
+          <div><div class="page-title">Dashboard</div><div class="page-sub">EWS monitoring overview for your school</div></div>
+          <button class="btn btn-primary" onclick="openAddModal()">＋ Add At-Risk Student</button>
+        </div>
+        <div id="dash-banner"></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-lbl">Total Enrolled</div><div class="stat-val" id="s-enrolled">—</div><div class="stat-meta">Students on roll</div></div>
+          <div class="stat-card is-red"><div class="stat-lbl">At-Risk (Active)</div><div class="stat-val" id="s-atrisk">0</div><div class="stat-meta">Awaiting intervention</div></div>
+          <div class="stat-card is-warn"><div class="stat-lbl">High Absenteeism</div><div class="stat-val" id="s-absent">0</div><div class="stat-meta">≥ 5 days in fortnight</div></div>
+          <div class="stat-card is-green"><div class="stat-lbl">Returned to School</div><div class="stat-val" id="s-returned">0</div><div class="stat-meta">This academic year</div></div>
+        </div>
+        <div class="chart-row">
+          <div class="card"><div class="card-hdr"><div class="card-title">Risk by Early Sign</div></div><div class="card-body"><div style="position:relative;height:200px"><canvas id="signChart"></canvas></div></div></div>
+          <div class="card"><div class="card-hdr"><div class="card-title">Class-wise Distribution</div></div><div class="card-body"><div style="position:relative;height:200px"><canvas id="classChart"></canvas></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">Recent At-Risk Students</div><button class="btn btn-outline btn-sm" onclick="showSection('atrisk')">View All</button></div>
+          <div class="card-body" style="padding:0"><div class="tbl-wrap"><table><thead><tr><th>Student</th><th>Class</th><th>Days Absent</th><th>Early Sign</th><th>Date Flagged</th><th>Status</th></tr></thead><tbody id="recent-tbody"></tbody></table></div></div>
+        </div>
+      </div>
+
+      <!-- AT-RISK -->
+      <div class="section" id="section-atrisk">
+        <div class="page-hdr"><div><div class="page-title">At-Risk Students</div><div class="page-sub">Currently flagged under the Early Warning System</div></div><button class="btn btn-primary" onclick="openAddModal()">＋ Add Student</button></div>
+        <div class="alert alert-warn"><span>⚠</span><span>Students absent <strong>&gt;5 days in a fortnight</strong> or <strong>&gt;7 days in a month</strong> must be flagged per PBSSM guidelines.</span></div>
+        <div class="filter-row">
+          <input type="text" id="search-input" placeholder="Search by name…" oninput="renderAtRisk()">
+          <select id="filter-class" onchange="renderAtRisk()"><option value="">All Classes</option></select>
+          <select id="filter-sign" onchange="renderAtRisk()"><option value="">All Signs</option><option>High Absenteeism</option><option>Poor Academic Performance</option><option>Behavioural Issues</option><option>Declining Engagement</option><option>Family Challenges</option><option>Substance Abuse</option><option>Peer Pressure / Bullying</option></select>
+        </div>
+        <div class="card"><div class="card-body" style="padding:0"><div class="tbl-wrap"><table><thead><tr><th>Student Name</th><th>Class</th><th>Absent</th><th>Early Signs</th><th>Date Flagged</th><th>Actions</th><th>Risk</th><th></th></tr></thead><tbody id="atrisk-tbody"></tbody></table></div></div></div>
+      </div>
+
+      <!-- RETURNED -->
+      <div class="section" id="section-returned">
+        <div class="page-hdr"><div><div class="page-title">Returned to School</div><div class="page-sub">Students who were at-risk but have come back</div></div></div>
+        <div class="card"><div class="card-body" style="padding:0"><div class="tbl-wrap"><table><thead><tr><th>Student Name</th><th>Class</th><th>Date Flagged</th><th>Date Returned</th><th>Return Reason</th><th>Early Signs</th></tr></thead><tbody id="returned-tbody"></tbody></table></div></div></div>
+      </div>
+
+      <!-- SCHOOL REPORT -->
+      <div class="section" id="section-report-school">
+        <div class="page-hdr"><div><div class="page-title">School-Level Report</div><div class="page-sub">PBSSM Reporting Format — Head Teacher's Register</div></div><button class="btn btn-outline" onclick="window.print()">🖨 Print</button></div>
+        <div class="card"><div class="card-hdr"><div class="card-title">Summary</div></div>
+          <div class="card-body">
+            <div id="school-report-banner"></div>
+            <div class="report-box">
+              <div class="report-title">Reporting Format for Head Teachers (PBSSM Prescribed)</div>
+              <div class="tbl-wrap"><table class="report-table"><thead><tr><th>S.No</th><th>Name</th><th>Class</th><th>Days Absent</th><th>Reasons</th><th>Date Flagged</th><th>Date Returned</th><th>If Not Returned</th></tr></thead><tbody id="school-report-tbody"></tbody></table></div>
+            </div>
+            <div style="margin-top:12px;font-size:11px;color:var(--text3);text-align:right">Authenticated by Head Teacher / Teacher-In-Charge &nbsp; Date: ___________</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CIRCLE REPORT -->
+      <div class="section" id="section-report-circle">
+        <div class="page-hdr"><div><div class="page-title">Circle-Level Report (SI/AI Format)</div><div class="page-sub">Bi-monthly aggregated report</div></div><button class="btn btn-outline" onclick="window.print()">🖨 Print</button></div>
+        <div class="card"><div class="card-body">
+          <div class="report-box"><div class="report-title">Reporting Format for SIs/AIs — Circle Level</div>
+            <div class="tbl-wrap"><table class="report-table"><thead><tr><th>S.No</th><th>School Name</th><th>UDISE</th><th>Enrolled (Today)</th><th>1 Month Ago</th><th>At-Risk</th><th>Returned</th><th>No Longer Attending</th></tr></thead><tbody id="circle-report-tbody"></tbody></table></div>
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3)">Submit once every two months by SI/AI for their circle.</div>
+        </div></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="section" id="section-settings">
+        <div class="page-hdr"><div><div class="page-title">School Information</div><div class="page-sub">Update your school details</div></div></div>
+        <div class="card"><div class="card-hdr"><div class="card-title">School Details</div></div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-group"><label>School Name</label><input type="text" id="cfg-name"></div>
+              <div class="form-group"><label>UDISE Code</label><input type="text" id="cfg-udise" disabled style="background:#f5f5f5;color:#888"></div>
+              <div class="form-group"><label>Block</label><input type="text" id="cfg-block"></div>
+              <div class="form-group"><label>Circle</label><input type="text" id="cfg-circle"></div>
+              <div class="form-group"><label>District</label><select id="cfg-dist"><option value="">Select</option><option>Alipurduar</option><option>Birbhum</option><option>Cooch Behar</option><option>Dakshin Dinajpur</option><option>GTA</option><option>Hooghly</option><option>Howrah</option><option>Jalpaiguri</option><option>Kalimpong</option><option>Kolkata</option><option>Malda</option><option>Murshidabad</option><option>Nadia</option><option>North 24 Parganas</option><option>Paschim Burdwan</option><option>Paschim Medinipur</option><option>Purba Burdwan</option><option>Purba Medinipur</option><option>South 24 Parganas</option><option>Uttar Dinajpur</option><option>Siliguri</option></select></div>
+              <div class="form-group"><label>Head Teacher Name</label><input type="text" id="cfg-ht"></div>
+              <div class="form-group"><label>Total Enrolled Students</label><input type="number" id="cfg-enrolled"></div>
+            </div>
+            <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveSettings()">💾 Save Changes</button></div>
+          </div>
+        </div>
+        <div class="card"><div class="card-hdr"><div class="card-title">EWS Thresholds (PBSSM Guidelines)</div></div>
+          <div class="card-body">
+            <div class="alert alert-info"><span>ℹ</span><span>Prescribed by PBSSM/UNICEF — apply uniformly to all schools.</span></div>
+            <table style="font-size:13px;width:100%;border-collapse:collapse"><thead><tr><th style="background:var(--surface2);padding:8px 11px;text-align:left;font-weight:600;border-bottom:1px solid var(--border)">Indicator</th><th style="background:var(--surface2);padding:8px 11px;text-align:left;font-weight:600;border-bottom:1px solid var(--border)">Threshold</th><th style="background:var(--surface2);padding:8px 11px;text-align:left;font-weight:600;border-bottom:1px solid var(--border)">Action</th></tr></thead>
+            <tbody>
+              <tr><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Absence (fortnight)</td><td style="padding:8px 11px;border-bottom:1px solid var(--border)"><span class="badge badge-red">&gt;5 days</span></td><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Teacher home visit</td></tr>
+              <tr><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Absence (month)</td><td style="padding:8px 11px;border-bottom:1px solid var(--border)"><span class="badge badge-red">&gt;7 days</span></td><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Flag as at-risk</td></tr>
+              <tr><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Consecutive absence</td><td style="padding:8px 11px;border-bottom:1px solid var(--border)"><span class="badge badge-warn">&gt;3 days</span></td><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Phone call to parents</td></tr>
+              <tr><td style="padding:8px 11px;border-bottom:1px solid var(--border)">SMC joint visit</td><td style="padding:8px 11px;border-bottom:1px solid var(--border)"><span class="badge badge-red">&gt;10 days/month</span></td><td style="padding:8px 11px;border-bottom:1px solid var(--border)">Joint SMC + teacher visit</td></tr>
+              <tr><td style="padding:8px 11px">SI/AI report cycle</td><td style="padding:8px 11px"><span class="badge badge-blue">Every 2 months</span></td><td style="padding:8px 11px">Submit circle report</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     ADMIN APP
+══════════════════════════════════════════════ -->
+<div id="admin-app">
+  <div class="a-header">
+    <div class="a-header-l">
+      <div class="adm-logo">🛡</div>
+      <div class="adm-htxt"><div class="t1">EWS Admin Console</div><div class="t2">PBSSM · State Coordinator View</div></div>
+    </div>
+    <div class="a-header-r">
+      <span class="adm-badge">ADMIN</span>
+      <button class="adm-refresh" onclick="loadAllAdminData()">⟳ Refresh Data</button>
+      <button class="adm-logout" onclick="logoutAdmin()">↩ Logout</button>
+    </div>
+  </div>
+  <div class="a-body">
+    <nav class="a-nav">
+      <div class="a-nav-lbl">Overview</div>
+      <div class="a-nav-item active" onclick="showAdminSection('adm-dashboard')"><span class="a-nav-icon">📊</span>Overview Dashboard</div>
+      <div class="a-sep"></div>
+      <div class="a-nav-lbl">Analysis</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-riskmap')"><span class="a-nav-icon">🗺</span>Block Risk Map</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-vulnerability')"><span class="a-nav-icon">📉</span>Vulnerability Analysis</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-interventions')"><span class="a-nav-icon">🔧</span>Intervention Tracker</div>
+      <div class="a-sep"></div>
+      <div class="a-nav-lbl">Schools</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-schools')"><span class="a-nav-icon">🏫</span>School Report Cards</div>
+      <div class="a-sep"></div>
+      <div class="a-nav-lbl">Children</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-children')"><span class="a-nav-icon">👤</span>Children Details</div>
+      <div class="a-nav-item" onclick="showAdminSection('adm-report')"><span class="a-nav-icon">📋</span>Consolidated Report</div>
+    </nav>
+    <main class="a-main">
+
+      <!-- ADM DASHBOARD -->
+      <div class="adm-section active" id="adm-section-adm-dashboard">
+        <div class="page-hdr">
+          <div><div class="adm-page-title">Overview Dashboard</div><div class="adm-page-sub">Aggregated EWS data across all registered schools</div></div>
+          <div id="adm-last-refresh" style="font-size:11px;color:var(--adm-text3)"></div>
+        </div>
+        <div class="adm-stat-grid" id="adm-kpi-grid">
+          <div class="adm-stat s-total"><div class="adm-stat-lbl">Registered Schools</div><div class="adm-stat-val" id="ak-schools">—</div><div class="adm-stat-meta">Across all blocks</div></div>
+          <div class="adm-stat s-total"><div class="adm-stat-lbl">Total Enrolled</div><div class="adm-stat-val" id="ak-enrolled">—</div><div class="adm-stat-meta">Students on roll</div></div>
+          <div class="adm-stat s-risk"><div class="adm-stat-lbl">Active At-Risk</div><div class="adm-stat-val" id="ak-atrisk">—</div><div class="adm-stat-meta">Awaiting intervention</div></div>
+          <div class="adm-stat s-warn"><div class="adm-stat-lbl">High Absenteeism</div><div class="adm-stat-val" id="ak-absent">—</div><div class="adm-stat-meta">≥5 days/fortnight</div></div>
+          <div class="adm-stat s-ok"><div class="adm-stat-lbl">Returned to School</div><div class="adm-stat-val" id="ak-returned">—</div><div class="adm-stat-meta">Successful interventions</div></div>
+          <div class="adm-stat s-ok"><div class="adm-stat-lbl">Return Rate</div><div class="adm-stat-val" id="ak-rate">—</div><div class="adm-stat-meta">Of all flagged students</div></div>
+        </div>
+        <div class="chart-row">
+          <div class="adm-card"><div class="adm-card-hdr"><div class="adm-card-title">Vulnerability Reasons — State-wide</div></div><div class="adm-card-body"><div style="position:relative;height:220px"><canvas id="adm-sign-chart"></canvas></div></div></div>
+          <div class="adm-card"><div class="adm-card-hdr"><div class="adm-card-title">Block-wise At-Risk Count</div></div><div class="adm-card-body"><div style="position:relative;height:220px"><canvas id="adm-block-chart"></canvas></div></div></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-hdr"><div class="adm-card-title">Block Summary</div><button class="btn btn-sm" style="background:rgba(96,165,250,.1);color:var(--adm-blue);border:1px solid rgba(96,165,250,.2)" onclick="showAdminSection('adm-riskmap')">View Risk Map →</button></div>
+          <div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+            <table class="adm-tbl"><thead><tr><th>Block</th><th>Schools</th><th>Enrolled</th><th>At-Risk</th><th>High Risk</th><th>Returned</th><th>Return Rate</th><th>Risk Level</th></tr></thead>
+            <tbody id="adm-block-tbody"></tbody></table>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- ADM RISK MAP -->
+      <div class="adm-section" id="adm-section-adm-riskmap">
+        <div class="page-hdr">
+          <div><div class="adm-page-title">Block Risk Map</div><div class="adm-page-sub">Vulnerability heat map across blocks — coloured by active at-risk concentration</div></div>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--adm-text2)"><div style="width:12px;height:12px;border-radius:3px;background:var(--adm-red)"></div>High Risk (≥5 at-risk or high density)</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--adm-text2)"><div style="width:12px;height:12px;border-radius:3px;background:var(--adm-accent)"></div>Medium Risk</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--adm-text2)"><div style="width:12px;height:12px;border-radius:3px;background:var(--adm-green)"></div>Low Risk (managed)</div>
+        </div>
+        <div class="risk-map-grid" id="risk-map-grid"></div>
+        <div style="margin-top:18px">
+          <div class="adm-card">
+            <div class="adm-card-hdr"><div class="adm-card-title">District-level Summary</div></div>
+            <div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+              <table class="adm-tbl"><thead><tr><th>District</th><th>Blocks</th><th>Schools</th><th>At-Risk</th><th>Returned</th><th>Top Vulnerability</th><th>Risk Level</th></tr></thead>
+              <tbody id="district-tbody"></tbody></table>
+            </div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADM VULNERABILITY -->
+      <div class="adm-section" id="adm-section-adm-vulnerability">
+        <div class="page-hdr"><div><div class="adm-page-title">Vulnerability Analysis</div><div class="adm-page-sub">Reasons for at-risk status across all schools and blocks</div></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px" class="chart-row">
+          <div class="adm-card">
+            <div class="adm-card-hdr"><div class="adm-card-title">Early Signs Frequency</div></div>
+            <div class="adm-card-body"><div id="vuln-bars" class="vuln-list"></div></div>
+          </div>
+          <div class="adm-card">
+            <div class="adm-card-hdr"><div class="adm-card-title">Sign Distribution</div></div>
+            <div class="adm-card-body"><div style="position:relative;height:240px"><canvas id="adm-vuln-pie"></canvas></div></div>
+          </div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-hdr"><div class="adm-card-title">Vulnerability by Block</div></div>
+          <div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+            <table class="adm-tbl"><thead><tr><th>Block</th><th>Absenteeism</th><th>Academic</th><th>Behavioural</th><th>Engagement</th><th>Family</th><th>Substance</th><th>Bullying</th><th>Total Students</th></tr></thead>
+            <tbody id="vuln-block-tbody"></tbody></table>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- ADM INTERVENTIONS -->
+      <div class="adm-section" id="adm-section-adm-interventions">
+        <div class="page-hdr"><div><div class="adm-page-title">Intervention Tracker</div><div class="adm-page-sub">Status and effectiveness of remedial actions taken across all schools</div></div></div>
+        <div class="adm-stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+          <div class="adm-stat s-total"><div class="adm-stat-lbl">Total Interventions</div><div class="adm-stat-val" id="int-total">—</div><div class="adm-stat-meta">Actions recorded</div></div>
+          <div class="adm-stat s-ok"><div class="adm-stat-lbl">Students w/ Actions</div><div class="adm-stat-val" id="int-covered">—</div><div class="adm-stat-meta">At least 1 action taken</div></div>
+          <div class="adm-stat s-risk"><div class="adm-stat-lbl">No Action Yet</div><div class="adm-stat-val" id="int-none">—</div><div class="adm-stat-meta">Urgent attention needed</div></div>
+          <div class="adm-stat s-warn"><div class="adm-stat-lbl">Avg Actions / Child</div><div class="adm-stat-val" id="int-avg">—</div><div class="adm-stat-meta">Intervention intensity</div></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-hdr"><div class="adm-card-title">Intervention Usage & Return Correlation</div></div>
+          <div class="adm-card-body"><div class="int-grid" id="int-effectiveness-grid"></div></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-hdr"><div class="adm-card-title">Students with No Intervention (Urgent)</div></div>
+          <div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+            <table class="adm-tbl"><thead><tr><th>Student</th><th>School</th><th>Block</th><th>Class</th><th>Days Absent</th><th>Signs</th><th>Date Flagged</th></tr></thead>
+            <tbody id="no-int-tbody"></tbody></table>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- ADM SCHOOLS -->
+      <div class="adm-section" id="adm-section-adm-schools">
+        <div class="page-hdr">
+          <div><div class="adm-page-title">School Report Cards</div><div class="adm-page-sub">Individual school performance across all EWS indicators</div></div>
+        </div>
+        <div class="adm-filter-row">
+          <input type="text" id="sc-search" placeholder="Search school…" oninput="renderSchoolCards()">
+          <select id="sc-district" onchange="renderSchoolCards()"><option value="">All Districts</option></select>
+          <select id="sc-block" onchange="renderSchoolCards()"><option value="">All Blocks</option></select>
+          <select id="sc-risk" onchange="renderSchoolCards()"><option value="">All Risk Levels</option><option value="high">High Risk</option><option value="med">Medium</option><option value="low">Low</option></select>
+        </div>
+        <div class="school-cards-grid" id="school-cards-grid"></div>
+      </div>
+
+      <!-- ADM CHILDREN -->
+      <div class="adm-section" id="adm-section-adm-children">
+        <div class="page-hdr"><div><div class="adm-page-title">Children Details</div><div class="adm-page-sub">All at-risk and returned students across all schools</div></div></div>
+        <div class="adm-filter-row">
+          <input type="text" id="ch-search" placeholder="Search student name…" oninput="renderChildrenTable()">
+          <select id="ch-school" onchange="renderChildrenTable()"><option value="">All Schools</option></select>
+          <select id="ch-block" onchange="renderChildrenTable()"><option value="">All Blocks</option></select>
+          <select id="ch-sign" onchange="renderChildrenTable()"><option value="">All Signs</option><option>High Absenteeism</option><option>Poor Academic Performance</option><option>Behavioural Issues</option><option>Declining Engagement</option><option>Family Challenges</option><option>Substance Abuse</option><option>Peer Pressure / Bullying</option></select>
+          <select id="ch-status" onchange="renderChildrenTable()"><option value="">All Status</option><option value="active">At-Risk</option><option value="returned">Returned</option></select>
+          <select id="ch-risk" onchange="renderChildrenTable()"><option value="">All Risk</option><option value="high">High</option><option value="med">Medium</option><option value="low">Low</option></select>
+        </div>
+        <div class="summary-strip" id="ch-summary"></div>
+        <div class="adm-card"><div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+          <table class="adm-tbl"><thead><tr><th>#</th><th>Student</th><th>School</th><th>Block</th><th>Class</th><th>Absent</th><th>Vulnerability Reasons</th><th>Interventions</th><th>Date Flagged</th><th>Status</th><th>Risk</th></tr></thead>
+          <tbody id="children-tbody"></tbody></table>
+        </div></div></div>
+      </div>
+
+      <!-- ADM CONSOLIDATED REPORT -->
+      <div class="adm-section" id="adm-section-adm-report">
+        <div class="page-hdr"><div><div class="adm-page-title">Consolidated State Report</div><div class="adm-page-sub">Full EWS data — printable master register</div></div><button class="btn btn-outline" style="border-color:var(--adm-border);color:var(--adm-text2)" onclick="window.print()">🖨 Print Report</button></div>
+        <div class="adm-card">
+          <div class="adm-card-hdr"><div class="adm-card-title">All Students — State-wide Register</div></div>
+          <div class="adm-card-body" style="padding:0"><div class="tbl-wrap">
+            <table class="adm-tbl"><thead><tr><th>S.No</th><th>Student</th><th>School</th><th>UDISE</th><th>Block</th><th>District</th><th>Class</th><th>Days Absent</th><th>Vulnerability</th><th>Interventions</th><th>Date Flagged</th><th>Returned?</th><th>Date Returned</th><th>Return Reason</th></tr></thead>
+            <tbody id="consol-tbody"></tbody></table>
+          </div></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ADD STUDENT MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">Add At-Risk Student</div><button class="modal-close" onclick="closeModal('add-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Student Name *</label><input type="text" id="f-name" placeholder="Full name"></div>
+        <div class="form-group"><label>Class *</label><select id="f-class"><option value="">Select</option><option>Class I</option><option>Class II</option><option>Class III</option><option>Class IV</option><option>Class V</option><option>Class VI</option><option>Class VII</option><option>Class VIII</option><option>Class IX</option><option>Class X</option><option>Class XI</option><option>Class XII</option></select></div>
+        <div class="form-group"><label>Days Absent (Last Month)</label><input type="number" id="f-absent" placeholder="e.g. 8" min="0"></div>
+        <div class="form-group"><label>Date Identified At-Risk</label><input type="date" id="f-date"></div>
+        <div class="form-group"><label>Gender</label><select id="f-gender"><option value="">Select</option><option>Girl</option><option>Boy</option><option>Other</option></select></div>
+      </div>
+      <div style="margin-top:14px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:500;color:var(--text2)">Early Signs Observed *</label>
+        <div class="cb-grp">
+          <label class="cb-item"><input type="checkbox" value="High Absenteeism"> High Absenteeism</label>
+          <label class="cb-item"><input type="checkbox" value="Poor Academic Performance"> Poor Academic Performance</label>
+          <label class="cb-item"><input type="checkbox" value="Behavioural Issues"> Behavioural Issues</label>
+          <label class="cb-item"><input type="checkbox" value="Declining Engagement"> Declining School Engagement</label>
+          <label class="cb-item"><input type="checkbox" value="Family Challenges"> Family Challenges</label>
+          <label class="cb-item"><input type="checkbox" value="Substance Abuse"> Substance Abuse</label>
+          <label class="cb-item"><input type="checkbox" value="Peer Pressure / Bullying"> Peer Pressure / Bullying</label>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:500;color:var(--text2)">Remedial Actions Initiated</label>
+        <div class="cb-grp">
+          <label class="cb-item"><input type="checkbox" value="Buddy system activated"> Buddy system activated</label>
+          <label class="cb-item"><input type="checkbox" value="Phone call to parents"> Phone call to parents (absent &gt;3 days)</label>
+          <label class="cb-item"><input type="checkbox" value="Teacher home visit"> Teacher home visit (absent &gt;5 days in fortnight)</label>
+          <label class="cb-item"><input type="checkbox" value="SMC joint visit"> SMC + Teacher joint visit (absent &gt;10 days)</label>
+          <label class="cb-item"><input type="checkbox" value="Mentor assigned"> Mentor / older student assigned</label>
+          <label class="cb-item"><input type="checkbox" value="PTM discussion"> Discussion in Parent-Teacher Meeting</label>
+          <label class="cb-item"><input type="checkbox" value="Referred to external services"> Referred to external services / NGO</label>
+        </div>
+      </div>
+      <div style="margin-top:14px"><div class="form-group"><label>Additional Notes</label><textarea id="f-notes" placeholder="Any additional observations…"></textarea></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-student" onclick="saveStudent()">💾 Save Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- RETURN MODAL -->
+<div class="modal-overlay" id="return-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-hdr"><div class="modal-title">Mark as Returned to School</div><button class="modal-close" onclick="closeModal('return-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:12px"><label>Date Student Returned</label><input type="date" id="r-date"></div>
+      <div class="form-group"><label>Reason / Notes</label><textarea id="r-reason" placeholder="What intervention worked?"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('return-modal')">Cancel</button>
+      <button class="btn btn-success" id="btn-confirm-return" onclick="confirmReturn()">✓ Mark Returned</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-hdr"><div class="modal-title" id="detail-title"></div><button class="modal-close" onclick="closeModal('detail-modal')">✕</button></div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('detail-modal')">Close</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+/* ═══════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════ */
+const SB_URL = 'https://dfaqcivwthfjrgtehgpb.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXFjaXZ3dGhmanJndGVoZ3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTAyODksImV4cCI6MjA5MzQ4NjI4OX0.z4AtmmtMvsQGTvUwMlVQGyTKIdXSHzwbpWDfbjbjIdE';
+const HDR    = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
+// ⚠ Change these credentials before deploying
+const ADMIN_USER = 'pbssm_admin';
+const ADMIN_PASS = 'Admin@EWS2024';
+
+const SIGNS = ['High Absenteeism','Poor Academic Performance','Behavioural Issues','Declining Engagement','Family Challenges','Substance Abuse','Peer Pressure / Bullying'];
+const ACTIONS_LIST = ['Buddy system activated','Phone call to parents','Teacher home visit','SMC joint visit','Mentor assigned','PTM discussion','Referred to external services'];
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let currentSchool = null;
+let students = [];
+let returnTargetId = null;
+let signChartInst = null, classChartInst = null;
+let isOnline = navigator.onLine;
+
+// Admin state
+let allSchools = [];
+let allStudents = []; // each has embedded school data
+let admSignChart = null, admBlockChart = null, admVulnPie = null;
+
+/* ═══════════════════════════════════════════
+   SUPABASE HELPERS
+═══════════════════════════════════════════ */
+async function sbFetch(path, opts = {}) {
+  const url = SB_URL + '/rest/v1/' + path;
+  const method = opts.method || 'GET';
+  const prefer = opts.prefer || (method === 'POST' ? 'return=representation' : method === 'PATCH' ? 'return=representation' : '');
+  const res = await fetch(url, {
+    method, headers: { ...HDR, 'Prefer': prefer, ...opts.headers },
+    body: opts.body
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(e || 'HTTP ' + res.status); }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3200);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('T')[0].split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function safeArr(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  try { return JSON.parse(v); } catch(e) { return []; }
+}
+
+function riskLevel(s) {
+  const days = s.days_absent || 0;
+  const signs = safeArr(s.signs).length;
+  if (days > 10 || signs >= 3) return 'high';
+  if (days > 5  || signs >= 2) return 'med';
+  return 'low';
+}
+
+function blockRisk(active) {
+  if (!active.length) return 'low';
+  const highPct = active.filter(s => riskLevel(s) === 'high').length / active.length;
+  if (highPct > 0.4 || active.length >= 5) return 'high';
+  if (highPct > 0.2 || active.length >= 2) return 'med';
+  return 'low';
+}
+
+function topSign(studs) {
+  const counts = {};
+  studs.forEach(s => safeArr(s.signs).forEach(sg => { counts[sg] = (counts[sg]||0)+1; }));
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  return sorted.length ? sorted[0][0] : 'None';
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+/* ═══════════════════════════════════════════
+   ONLINE / OFFLINE
+═══════════════════════════════════════════ */
+function updateSyncUI() {
+  const dot = document.getElementById('sync-dot'), lbl = document.getElementById('sync-lbl');
+  if (!dot) return;
+  dot.className = 'sync-dot' + (isOnline ? '' : ' off');
+  lbl.textContent = isOnline ? 'Online' : 'Offline';
+}
+window.addEventListener('online',  () => { isOnline = true;  updateSyncUI(); toast('Back online', 'ok'); loadStudents(); });
+window.addEventListener('offline', () => { isOnline = false; updateSyncUI(); toast('Offline — using cached data'); });
+
+/* ═══════════════════════════════════════════
+   LOCAL CACHE
+═══════════════════════════════════════════ */
+function cacheStudents() { if (currentSchool) localStorage.setItem('ews_s_'+currentSchool.id, JSON.stringify(students)); }
+function loadCachedStudents() { const r = localStorage.getItem('ews_s_'+(currentSchool?.id||'')); if (r) try { students = JSON.parse(r); } catch(e){} }
+function cacheSchool(s) { localStorage.setItem('ews_school', JSON.stringify(s)); }
+function getCachedSchool() { const r = localStorage.getItem('ews_school'); return r ? JSON.parse(r) : null; }
+function clearSchoolSession() { localStorage.removeItem('ews_school'); currentSchool = null; students = []; }
+
+/* ═══════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════ */
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', ['login','register','admin'][i] === tab));
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+async function loginSchool() {
+  const udise = document.getElementById('l-udise').value.trim();
+  const pass  = document.getElementById('l-pass').value.trim();
+  const err   = document.getElementById('l-err');
+  err.classList.remove('show');
+  if (!udise || !pass) { err.textContent = 'Please enter UDISE code and passcode.'; err.classList.add('show'); return; }
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  try {
+    const data = await sbFetch(`schools?udise=eq.${encodeURIComponent(udise)}&passcode=eq.${encodeURIComponent(pass)}&select=*`);
+    if (!data?.length) throw new Error('Invalid UDISE code or passcode.');
+    await startSchoolApp(data[0]);
+  } catch(e) { err.textContent = e.message; err.classList.add('show'); }
+  finally { btn.disabled = false; btn.textContent = 'Login to School →'; }
+}
+
+async function registerSchool() {
+  const name  = document.getElementById('r-name').value.trim();
+  const udise = document.getElementById('r-udise').value.trim();
+  const dist  = document.getElementById('r-dist').value;
+  const pass1 = document.getElementById('r-pass1').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const err = document.getElementById('r-err'), ok = document.getElementById('r-ok');
+  err.classList.remove('show'); ok.classList.remove('show');
+  if (!name || !udise || !dist || !pass1) { err.textContent = 'Fill all required (*) fields.'; err.classList.add('show'); return; }
+  if (pass1 !== pass2) { err.textContent = 'Passcodes do not match.'; err.classList.add('show'); return; }
+  const btn = document.getElementById('btn-reg');
+  btn.disabled = true; btn.textContent = 'Registering…';
+  try {
+    const ex = await sbFetch(`schools?udise=eq.${encodeURIComponent(udise)}&select=id`);
+    if (ex?.length) throw new Error('This UDISE code is already registered. Please login instead.');
+    const payload = { name, udise, passcode: pass1, district: dist, block: document.getElementById('r-block').value.trim(), circle: document.getElementById('r-circle').value.trim(), ht_name: document.getElementById('r-ht').value.trim(), enrolled: parseInt(document.getElementById('r-enroll').value)||0 };
+    const res = await sbFetch('schools', { method: 'POST', body: JSON.stringify(payload) });
+    ok.textContent = '✓ Registered! Logging you in…'; ok.classList.add('show');
+    setTimeout(() => startSchoolApp(res[0]), 1000);
+  } catch(e) { err.textContent = e.message; err.classList.add('show'); }
+  finally { btn.disabled = false; btn.textContent = 'Register School →'; }
+}
+
+function loginAdmin() {
+  const user = document.getElementById('a-user').value.trim();
+  const pass = document.getElementById('a-pass').value.trim();
+  const err  = document.getElementById('a-err');
+  err.classList.remove('show');
+  if (!user || !pass) { err.textContent = 'Enter admin username and password.'; err.classList.add('show'); return; }
+  if (user !== ADMIN_USER || pass !== ADMIN_PASS) { err.textContent = 'Invalid admin credentials.'; err.classList.add('show'); return; }
+  localStorage.setItem('ews_admin_session', '1');
+  startAdminApp();
+}
+
+function logoutSchool() {
+  if (!confirm('Logout? Your data is saved in the cloud.')) return;
+  clearSchoolSession();
+  document.getElementById('school-app').classList.remove('show');
+  document.getElementById('auth-screen').classList.add('show');
+  toast('Logged out');
+}
+
+function logoutAdmin() {
+  localStorage.removeItem('ews_admin_session');
+  document.getElementById('admin-app').classList.remove('show');
+  document.getElementById('auth-screen').classList.add('show');
+  document.getElementById('a-user').value = '';
+  document.getElementById('a-pass').value = '';
+}
+
+/* ═══════════════════════════════════════════
+   START APPS
+═══════════════════════════════════════════ */
+async function startSchoolApp(school) {
+  currentSchool = school;
+  cacheSchool(school);
+  document.getElementById('auth-screen').classList.remove('show');
+  document.getElementById('school-app').classList.add('show');
+  document.getElementById('hdr-school-name').textContent = school.name;
+  updateSyncUI();
+  await loadStudents();
+  renderDashboard();
+  updateNavBadge();
+}
+
+async function startAdminApp() {
+  document.getElementById('auth-screen').classList.remove('show');
+  document.getElementById('admin-app').classList.add('show');
+  await loadAllAdminData();
+}
+
+/* ═══════════════════════════════════════════
+   SCHOOL — DATA
+═══════════════════════════════════════════ */
+async function loadStudents() {
+  if (!currentSchool) return;
+  if (!isOnline) { loadCachedStudents(); return; }
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.className = 'sync-dot syncing';
+  try {
+    const data = await sbFetch(`students?school_id=eq.${currentSchool.id}&select=*&order=created_at.desc`);
+    students = data || [];
+    cacheStudents();
+  } catch(e) { loadCachedStudents(); toast('Using cached data', 'err'); }
+  finally { updateSyncUI(); }
+}
+
+async function saveStudent() {
+  const name = document.getElementById('f-name').value.trim();
+  const cls  = document.getElementById('f-class').value;
+  if (!name || !cls) { toast('Enter student name and class', 'err'); return; }
+  const checked = [...document.querySelectorAll('#add-modal input[type=checkbox]:checked')].map(c => c.value);
+  const signs   = checked.filter(v => SIGNS.includes(v));
+  const actions = checked.filter(v => ACTIONS_LIST.includes(v));
+  const payload = { school_id: currentSchool.id, name, class: cls, gender: document.getElementById('f-gender').value, days_absent: parseInt(document.getElementById('f-absent').value)||0, date_identified: document.getElementById('f-date').value, signs: JSON.stringify(signs), actions: JSON.stringify(actions), notes: document.getElementById('f-notes').value.trim(), returned: false, date_returned: null, return_reason: null };
+  const btn = document.getElementById('btn-save-student');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    if (isOnline) {
+      const row = await sbFetch('students', { method: 'POST', body: JSON.stringify(payload) });
+      row[0].signs = safeArr(row[0].signs); row[0].actions = safeArr(row[0].actions);
+      students.unshift(row[0]);
+    } else {
+      payload.id = 'local_'+uid(); payload.signs = signs; payload.actions = actions; payload.created_at = new Date().toISOString();
+      students.unshift(payload); toast('Saved locally — will sync when online');
+    }
+    cacheStudents(); closeModal('add-modal'); renderDashboard(); updateNavBadge(); toast('Student added', 'ok');
+  } catch(e) { toast('Error: '+e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Save Student'; }
+}
+
+function openAddModal() {
+  ['f-name','f-absent','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-class').value = '';
+  document.getElementById('f-gender').value = '';
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  document.querySelectorAll('#add-modal input[type=checkbox]').forEach(cb => cb.checked = false);
+  openModal('add-modal');
+}
+
+function openReturnModal(id) {
+  returnTargetId = id;
+  document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('r-reason').value = '';
+  openModal('return-modal');
+}
+
+async function confirmReturn() {
+  const s = students.find(x => x.id === returnTargetId);
+  if (!s) return;
+  const upd = { returned: true, date_returned: document.getElementById('r-date').value, return_reason: document.getElementById('r-reason').value };
+  const btn = document.getElementById('btn-confirm-return');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    if (isOnline) await sbFetch(`students?id=eq.${s.id}`, { method: 'PATCH', body: JSON.stringify(upd), prefer: 'return=minimal' });
+    Object.assign(s, upd); cacheStudents(); closeModal('return-modal'); renderAtRisk(); updateNavBadge(); toast('Marked as returned', 'ok');
+  } catch(e) { toast('Error: '+e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = '✓ Mark Returned'; }
+}
+
+async function deleteStudent(id) {
+  if (!confirm('Remove this student record permanently?')) return;
+  try {
+    if (isOnline && !id.startsWith('local_')) await sbFetch(`students?id=eq.${id}`, { method: 'DELETE', headers: { 'Prefer':'' } });
+    students = students.filter(s => s.id !== id); cacheStudents(); renderAtRisk(); renderDashboard(); updateNavBadge(); toast('Record deleted');
+  } catch(e) { toast('Error: '+e.message, 'err'); }
+}
+
+/* ═══════════════════════════════════════════
+   SCHOOL — RENDER
+═══════════════════════════════════════════ */
+function renderDashboard() {
+  const active = students.filter(s => !s.returned);
+  const ret    = students.filter(s => s.returned);
+  document.getElementById('s-enrolled').textContent  = currentSchool?.enrolled || '—';
+  document.getElementById('s-atrisk').textContent    = active.length;
+  document.getElementById('s-returned').textContent  = ret.length;
+  document.getElementById('s-absent').textContent    = active.filter(s => s.days_absent >= 5).length;
+
+  const bEl = document.getElementById('dash-banner');
+  if (currentSchool?.name) {
+    bEl.innerHTML = `<div class="school-banner"><div><div class="s-banner-name">${currentSchool.name}</div><div class="s-banner-meta">UDISE: ${currentSchool.udise||'—'} &nbsp;|&nbsp; HT: ${currentSchool.ht_name||'—'}</div></div><div class="s-chips"><span class="s-chip">📍 ${currentSchool.circle||'Circle —'}</span><span class="s-chip">🏛 ${currentSchool.district||'District —'}</span></div></div>`;
+  } else { bEl.innerHTML = ''; }
+
+  const tbody = document.getElementById('recent-tbody');
+  const recent = [...students].sort((a,b) => (b.date_identified||'').localeCompare(a.date_identified||'')).slice(0,5);
+  if (!recent.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">No students yet. Click "+ Add At-Risk Student" to begin.</td></tr>`; }
+  else {
+    tbody.innerHTML = recent.map(s => {
+      const sg = safeArr(s.signs);
+      return `<tr><td style="font-weight:500">${s.name}</td><td>${s.class}</td><td>${s.days_absent} days</td><td>${sg.slice(0,2).map(x=>`<span class="badge badge-red" style="margin:1px;font-size:10px">${x}</span>`).join('')}${sg.length>2?`<span style="font-size:10px;color:var(--text3)"> +${sg.length-2}</span>`:''}</td><td>${fmtDate(s.date_identified)}</td><td>${s.returned?'<span class="badge badge-green">Returned</span>':'<span class="badge badge-red">At-Risk</span>'}</td></tr>`;
+    }).join('');
+  }
+  renderCharts(active);
+}
+
+function renderCharts(active) {
+  const sCounts = SIGNS.map(l => active.filter(s => safeArr(s.signs).includes(l)).length);
+  const sShort  = ['Absenteeism','Academic','Behaviour','Engagement','Family','Substance','Bullying'];
+  if (signChartInst) signChartInst.destroy();
+  signChartInst = new Chart(document.getElementById('signChart'), { type:'bar', data:{ labels:sShort, datasets:[{data:sCounts,backgroundColor:'#b83232',borderRadius:5,borderSkipped:false}] }, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#eee'}}}} });
+
+  const classes = [...new Set(active.map(s => s.class))].sort();
+  const cCounts = classes.map(c => active.filter(s => s.class === c).length);
+  if (classChartInst) classChartInst.destroy();
+  classChartInst = new Chart(document.getElementById('classChart'), { type:'bar', data:{ labels:classes.length?classes:['No data'], datasets:[{data:cCounts.length?cCounts:[0],backgroundColor:'#1b3d6f',borderRadius:5,borderSkipped:false}] }, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#eee'}}}} });
+}
+
+function renderAtRisk() {
+  const search = (document.getElementById('search-input').value||'').toLowerCase();
+  const fClass = document.getElementById('filter-class').value;
+  const fSign  = document.getElementById('filter-sign').value;
+  const cs = document.getElementById('filter-class'), cv = cs.value;
+  const classes = [...new Set(students.map(s => s.class))].sort();
+  cs.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option${c===cv?' selected':''}>${c}</option>`).join('');
+
+  let filtered = students.filter(s => !s.returned);
+  if (search)  filtered = filtered.filter(s => s.name.toLowerCase().includes(search));
+  if (fClass)  filtered = filtered.filter(s => s.class === fClass);
+  if (fSign)   filtered = filtered.filter(s => safeArr(s.signs).includes(fSign));
+
+  const tbody = document.getElementById('atrisk-tbody');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No at-risk students found.</td></tr>`; return; }
+  tbody.innerHTML = filtered.map(s => {
+    const sg = safeArr(s.signs), ac = safeArr(s.actions), rl = riskLevel(s);
+    const rc = rl==='high'?'var(--red)':rl==='med'?'var(--warn)':'var(--green)';
+    const rb = rl==='high'?'var(--red-bg)':rl==='med'?'var(--warn-bg)':'var(--green-bg)';
+    return `<tr>
+      <td><div style="font-weight:500">${s.name}</div><div style="font-size:11px;color:var(--text3)">${s.gender||''}</div></td>
+      <td>${s.class}</td>
+      <td><span style="font-weight:600;color:${s.days_absent>=7?'var(--red)':s.days_absent>=5?'var(--warn)':'var(--text)'}">${s.days_absent}</span></td>
+      <td style="max-width:170px">${sg.map(x=>`<span class="badge badge-red" style="margin:1px;font-size:10px">${x}</span>`).join('')}</td>
+      <td>${fmtDate(s.date_identified)}</td>
+      <td>${ac.length?`<span class="badge badge-blue">${ac.length} taken</span>`:'<span class="badge badge-warn">None</span>'}</td>
+      <td><span class="badge" style="background:${rb};color:${rc}">${rl==='high'?'High Risk':rl==='med'?'Medium':'Low'}</span></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="viewDetail('${s.id}')">View</button><button class="btn btn-success btn-sm" onclick="openReturnModal('${s.id}')">Returned</button><button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Del</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderReturned() {
+  const ret = students.filter(s => s.returned);
+  const tbody = document.getElementById('returned-tbody');
+  if (!ret.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">No students marked as returned yet.</td></tr>`; return; }
+  tbody.innerHTML = ret.map(s => `<tr><td style="font-weight:500">${s.name}</td><td>${s.class}</td><td>${fmtDate(s.date_identified)}</td><td>${fmtDate(s.date_returned)}</td><td style="font-size:12px;color:var(--text2)">${s.return_reason||'—'}</td><td>${safeArr(s.signs).map(x=>`<span class="badge badge-blue" style="margin:1px;font-size:10px">${x}</span>`).join('')}</td></tr>`).join('');
+}
+
+function renderSchoolReport() {
+  const bEl = document.getElementById('school-report-banner');
+  bEl.innerHTML = currentSchool ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:12px"><strong>School:</strong> ${currentSchool.name} &nbsp;|&nbsp; <strong>UDISE:</strong> ${currentSchool.udise||'—'} &nbsp;|&nbsp; <strong>Circle:</strong> ${currentSchool.circle||'—'} &nbsp;|&nbsp; <strong>District:</strong> ${currentSchool.district||'—'}</div>` : '';
+  const tbody = document.getElementById('school-report-tbody');
+  if (!students.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#999">No records.</td></tr>`; return; }
+  tbody.innerHTML = students.map((s,i) => `<tr><td>${i+1}</td><td>${s.name}</td><td>${s.class}</td><td>${s.days_absent}</td><td style="font-size:11px">${safeArr(s.signs).join('; ')}</td><td>${fmtDate(s.date_identified)}</td><td>${s.returned?fmtDate(s.date_returned):'—'}</td><td style="font-size:11px">${s.returned?(s.return_reason||'Returned'):'Ongoing intervention'}</td></tr>`).join('');
+}
+
+function renderCircleReport() {
+  const active = students.filter(s=>!s.returned).length, ret = students.filter(s=>s.returned).length;
+  const enrolled = parseInt(currentSchool?.enrolled)||0;
+  document.getElementById('circle-report-tbody').innerHTML = `<tr><td>1</td><td>${currentSchool?.name||'—'}</td><td>${currentSchool?.udise||'—'}</td><td>${enrolled}</td><td>${Math.max(0,enrolled-active)}</td><td>${active+ret}</td><td>${ret}</td><td>${students.filter(s=>s.returned&&!s.return_reason).length}</td></tr>`;
+}
+
+function viewDetail(id) {
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  const sg = safeArr(s.signs), ac = safeArr(s.actions);
+  document.getElementById('detail-title').textContent = s.name + ' — ' + s.class;
+  document.getElementById('detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><span style="font-size:11px;color:var(--text3)">Gender</span><div style="font-weight:500">${s.gender||'—'}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Days Absent</span><div style="font-weight:600;color:var(--red)">${s.days_absent}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Date Flagged</span><div style="font-weight:500">${fmtDate(s.date_identified)}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Status</span><div>${s.returned?'<span class="badge badge-green">Returned</span>':'<span class="badge badge-red">At-Risk</span>'}</div></div>
+    </div>
+    <div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px">Early Signs</div><div style="display:flex;flex-wrap:wrap;gap:5px">${sg.map(x=>`<span class="badge badge-red">${x}</span>`).join('')||'<span style="color:var(--text3);font-size:12px">None recorded</span>'}</div></div>
+    <div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px">Remedial Actions</div><div class="action-list">${ac.length?ac.map(a=>`<div class="action-item"><div class="action-dot"></div><div>${a}</div></div>`).join(''):'<div style="color:var(--text3);font-size:12px">No actions yet</div>'}</div></div>
+    ${s.notes?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px">Notes</div><div style="font-size:13px;color:var(--text2)">${s.notes}</div></div>`:''}
+    ${s.returned?`<div style="background:var(--green-bg);border-radius:8px;padding:10px 12px;font-size:12px"><strong>Returned:</strong> ${fmtDate(s.date_returned)} — ${s.return_reason||'No reason recorded'}</div>`:''}`;
+  openModal('detail-modal');
+}
+
+function loadSettingsForm() {
+  if (!currentSchool) return;
+  document.getElementById('cfg-name').value    = currentSchool.name||'';
+  document.getElementById('cfg-udise').value   = currentSchool.udise||'';
+  document.getElementById('cfg-block').value   = currentSchool.block||'';
+  document.getElementById('cfg-circle').value  = currentSchool.circle||'';
+  document.getElementById('cfg-dist').value    = currentSchool.district||'';
+  document.getElementById('cfg-ht').value      = currentSchool.ht_name||'';
+  document.getElementById('cfg-enrolled').value= currentSchool.enrolled||'';
+}
+
+async function saveSettings() {
+  const upd = { name: document.getElementById('cfg-name').value.trim(), block: document.getElementById('cfg-block').value.trim(), circle: document.getElementById('cfg-circle').value.trim(), district: document.getElementById('cfg-dist').value, ht_name: document.getElementById('cfg-ht').value.trim(), enrolled: parseInt(document.getElementById('cfg-enrolled').value)||0 };
+  try {
+    if (isOnline) { const res = await sbFetch(`schools?id=eq.${currentSchool.id}`, { method:'PATCH', body:JSON.stringify(upd) }); if (res?.[0]) currentSchool = res[0]; }
+    else Object.assign(currentSchool, upd);
+    cacheSchool(currentSchool);
+    document.getElementById('hdr-school-name').textContent = currentSchool.name;
+    toast('School info saved', 'ok');
+  } catch(e) { toast('Error: '+e.message, 'err'); }
+}
+
+function updateNavBadge() {
+  const count = students.filter(s => !s.returned).length;
+  const badge = document.getElementById('nav-badge');
+  badge.textContent = count; badge.style.display = count ? '' : 'none';
+}
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(item => { if (item.getAttribute('onclick')?.includes("'"+id+"'")) item.classList.add('active'); });
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  if (id==='dashboard')     renderDashboard();
+  if (id==='atrisk')        renderAtRisk();
+  if (id==='returned')      renderReturned();
+  if (id==='report-school') renderSchoolReport();
+  if (id==='report-circle') renderCircleReport();
+  if (id==='settings')      loadSettingsForm();
+}
+
+function toggleNav() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('nav-overlay').classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — DATA LOAD
+═══════════════════════════════════════════ */
+async function loadAllAdminData() {
+  try {
+    const [schools, studs] = await Promise.all([
+      sbFetch('schools?select=*&order=name'),
+      sbFetch('students?select=*,schools(id,name,udise,block,circle,district,enrolled)&order=created_at.desc')
+    ]);
+    allSchools  = schools || [];
+    allStudents = (studs || []).map(s => ({ ...s, _school: s.schools || {} }));
+    document.getElementById('adm-last-refresh').textContent = 'Last refreshed: ' + new Date().toLocaleTimeString();
+    renderAdminDashboard();
+    toast('Admin data loaded', 'ok');
+  } catch(e) { toast('Error loading admin data: '+e.message, 'err'); }
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — SECTION ROUTING
+═══════════════════════════════════════════ */
+function showAdminSection(id) {
+  document.querySelectorAll('.adm-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.a-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('adm-section-'+id).classList.add('active');
+  document.querySelectorAll('.a-nav-item').forEach(item => { if (item.getAttribute('onclick')?.includes("'"+id+"'")) item.classList.add('active'); });
+  if (id==='adm-dashboard')    renderAdminDashboard();
+  if (id==='adm-riskmap')      renderRiskMap();
+  if (id==='adm-vulnerability') renderVulnerabilityAnalysis();
+  if (id==='adm-interventions') renderInterventions();
+  if (id==='adm-schools')      renderSchoolCards();
+  if (id==='adm-children')     renderChildrenTable();
+  if (id==='adm-report')       renderConsolidatedReport();
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — OVERVIEW DASHBOARD
+═══════════════════════════════════════════ */
+function renderAdminDashboard() {
+  const active  = allStudents.filter(s => !s.returned);
+  const ret     = allStudents.filter(s => s.returned);
+  const total   = allStudents.length;
+  const enrolled = allSchools.reduce((sum,sc) => sum+(parseInt(sc.enrolled)||0), 0);
+  const rate    = total ? Math.round(ret.length/total*100) : 0;
+
+  document.getElementById('ak-schools').textContent  = allSchools.length;
+  document.getElementById('ak-enrolled').textContent = enrolled.toLocaleString();
+  document.getElementById('ak-atrisk').textContent   = active.length;
+  document.getElementById('ak-absent').textContent   = active.filter(s => s.days_absent >= 5).length;
+  document.getElementById('ak-returned').textContent = ret.length;
+  document.getElementById('ak-rate').textContent     = rate + '%';
+
+  // Signs chart
+  const sCounts = SIGNS.map(l => allStudents.filter(s => safeArr(s.signs).includes(l)).length);
+  if (admSignChart) admSignChart.destroy();
+  admSignChart = new Chart(document.getElementById('adm-sign-chart'), {
+    type:'bar', data:{ labels:['Absenteeism','Academic','Behaviour','Engagement','Family','Substance','Bullying'], datasets:[{data:sCounts,backgroundColor:['#ef4444','#f59e0b','#8b5cf6','#3b82f6','#10b981','#f97316','#ec4899'],borderRadius:5,borderSkipped:false}] },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#94aec8',font:{size:9}}},y:{beginAtZero:true,ticks:{stepSize:1,color:'#94aec8',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}
+  });
+
+  // Block chart
+  const blocks = groupByBlock();
+  const blockNames = Object.keys(blocks).slice(0,10);
+  const blockCounts = blockNames.map(b => blocks[b].active.length);
+  if (admBlockChart) admBlockChart.destroy();
+  admBlockChart = new Chart(document.getElementById('adm-block-chart'), {
+    type:'bar', data:{ labels:blockNames.length?blockNames:['No blocks'], datasets:[{data:blockCounts.length?blockCounts:[0],backgroundColor:'#3b82f6',borderRadius:5,borderSkipped:false}] },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1,color:'#94aec8',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},y:{grid:{display:false},ticks:{color:'#94aec8',font:{size:10}}}}}
+  });
+
+  // Block summary table
+  const tbody = document.getElementById('adm-block-tbody');
+  tbody.innerHTML = Object.entries(blocks).map(([block, {schools, all, active, ret}]) => {
+    const rl  = blockRisk(active);
+    const rc  = rl==='high'?'badge-adm-red':rl==='med'?'badge-adm-warn':'badge-adm-green';
+    const rRate = all.length ? Math.round(ret.length/all.length*100) : 0;
+    const highCount = active.filter(s => riskLevel(s)==='high').length;
+    return `<tr>
+      <td style="font-weight:500;color:var(--adm-text)">${block||'—'}</td>
+      <td style="color:var(--adm-text2)">${schools.size}</td>
+      <td style="color:var(--adm-text2)">${schools.size > 0 ? [...schools].reduce((s,id) => s + (parseInt(allSchools.find(sc=>sc.id===id)?.enrolled)||0), 0) : '—'}</td>
+      <td style="color:var(--adm-red);font-weight:600">${active.length}</td>
+      <td><span class="badge badge-adm-red">${highCount}</span></td>
+      <td style="color:var(--adm-green);font-weight:600">${ret.length}</td>
+      <td style="color:var(--adm-text2)">${rRate}%</td>
+      <td><span class="badge ${rc}">${rl==='high'?'High':rl==='med'?'Medium':'Low'}</span></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" class="adm-empty" style="padding:24px">No data available.</td></tr>`;
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — RISK MAP
+═══════════════════════════════════════════ */
+function renderRiskMap() {
+  const blocks = groupByBlock();
+  const grid   = document.getElementById('risk-map-grid');
+  if (!Object.keys(blocks).length) { grid.innerHTML = '<div class="adm-empty"><div class="empty-icon">🗺</div><p>No block data yet. Schools must set their Block field in Settings.</p></div>'; return; }
+
+  grid.innerHTML = Object.entries(blocks).sort((a,b) => b[1].active.length - a[1].active.length).map(([block, {schools, all, active, ret}]) => {
+    const rl  = blockRisk(active);
+    const pct = all.length ? Math.round(active.length / Math.max(active.length + ret.length, 1) * 100) : 0;
+    const enrolled = [...schools].reduce((s,id) => s + (parseInt(allSchools.find(sc=>sc.id===id)?.enrolled)||0), 0);
+    const top = topSign(active);
+    return `<div class="risk-tile ${rl}" title="Block: ${block}">
+      <div class="rt-block"><div class="rt-dot"></div>${block||'Unnamed Block'}</div>
+      <div class="rt-schools">${schools.size} school${schools.size!==1?'s':''} · ${enrolled} enrolled</div>
+      <div class="rt-nums">
+        <span>⚠ <span class="rt-at-risk">${active.length} at-risk</span></span>
+        <span>✓ <span class="rt-returned">${ret.length} returned</span></span>
+      </div>
+      ${top!=='None'?`<div style="font-size:10px;color:var(--adm-text3);margin-top:6px">Top: ${top}</div>`:''}
+      <div class="rt-bar"><div class="rt-bar-fill" style="width:${Math.min(pct,100)}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // District table
+  const districts = groupByDistrict();
+  document.getElementById('district-tbody').innerHTML = Object.entries(districts).map(([dist, data]) => {
+    const rl = blockRisk(data.active);
+    const rc = rl==='high'?'badge-adm-red':rl==='med'?'badge-adm-warn':'badge-adm-green';
+    const top = topSign(data.active);
+    return `<tr>
+      <td style="font-weight:600;color:var(--adm-text)">${dist||'—'}</td>
+      <td style="color:var(--adm-text2)">${data.blocks.size}</td>
+      <td style="color:var(--adm-text2)">${data.schools.size}</td>
+      <td style="color:var(--adm-red);font-weight:600">${data.active.length}</td>
+      <td style="color:var(--adm-green);font-weight:600">${data.ret.length}</td>
+      <td style="font-size:11px;color:var(--adm-accent)">${top}</td>
+      <td><span class="badge ${rc}">${rl==='high'?'High':rl==='med'?'Medium':'Low'}</span></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--adm-text3)">No district data.</td></tr>`;
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — VULNERABILITY ANALYSIS
+═══════════════════════════════════════════ */
+function renderVulnerabilityAnalysis() {
+  const counts = SIGNS.map(sg => allStudents.filter(s => safeArr(s.signs).includes(sg)).length);
+  const max    = Math.max(...counts, 1);
+  const colors = ['#ef4444','#f59e0b','#8b5cf6','#3b82f6','#10b981','#f97316','#ec4899'];
+
+  // Bars
+  document.getElementById('vuln-bars').innerHTML = SIGNS.map((sg,i) => `
+    <div class="vuln-row">
+      <div class="vuln-label" title="${sg}">${sg}</div>
+      <div class="vuln-track"><div class="vuln-fill" style="width:${Math.round(counts[i]/max*100)}%;background:${colors[i]}"></div></div>
+      <div class="vuln-count">${counts[i]}</div>
+    </div>`).join('');
+
+  // Pie
+  if (admVulnPie) admVulnPie.destroy();
+  admVulnPie = new Chart(document.getElementById('adm-vuln-pie'), {
+    type:'doughnut', data:{ labels:['Absenteeism','Academic','Behaviour','Engagement','Family','Substance','Bullying'], datasets:[{data:counts,backgroundColor:colors,borderColor:'var(--adm-surface)',borderWidth:2}] },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#94aec8',font:{size:11},boxWidth:12}}}}
+  });
+
+  // Vulnerability by block
+  const blocks = groupByBlock();
+  document.getElementById('vuln-block-tbody').innerHTML = Object.entries(blocks).map(([block, {all}]) => {
+    const sCounts = SIGNS.map(sg => all.filter(s => safeArr(s.signs).includes(sg)).length);
+    return `<tr><td style="font-weight:500;color:var(--adm-text)">${block||'—'}</td>${sCounts.map(c => `<td style="color:${c>0?'var(--adm-accent)':'var(--adm-text3)';font-weight:${c>0?'600':'400'}">${c||'—'}</td>`).join('')}<td style="color:var(--adm-text2)">${all.length}</td></tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--adm-text3)">No data.</td></tr>`;
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — INTERVENTIONS
+═══════════════════════════════════════════ */
+function renderInterventions() {
+  const active = allStudents.filter(s => !s.returned);
+  const withAct  = active.filter(s => safeArr(s.actions).length > 0);
+  const withNone = active.filter(s => safeArr(s.actions).length === 0);
+  const totalAct = allStudents.reduce((sum,s) => sum + safeArr(s.actions).length, 0);
+  const avgAct   = active.length ? (totalAct / active.length).toFixed(1) : '0';
+
+  document.getElementById('int-total').textContent   = totalAct;
+  document.getElementById('int-covered').textContent = withAct.length;
+  document.getElementById('int-none').textContent    = withNone.length;
+  document.getElementById('int-avg').textContent     = avgAct;
+
+  // Effectiveness grid
+  document.getElementById('int-effectiveness-grid').innerHTML = ACTIONS_LIST.map(act => {
+    const used    = allStudents.filter(s => safeArr(s.actions).includes(act));
+    const retd    = used.filter(s => s.returned);
+    const rate    = used.length ? Math.round(retd.length/used.length*100) : 0;
+    const col     = rate >= 60 ? '#22c55e' : rate >= 30 ? '#f59e0b' : '#ef4444';
+    return `<div class="int-item"><div class="int-name">${act}</div><div class="int-nums"><div class="int-total">${used.length} used</div><div class="int-rate" style="color:${col}">${rate}%</div></div><div style="font-size:10px;color:var(--adm-text3);margin-top:3px">return rate (${retd.length} of ${used.length})</div></div>`;
+  }).join('');
+
+  // No intervention table
+  document.getElementById('no-int-tbody').innerHTML = withNone.length
+    ? withNone.slice(0,50).map(s => `<tr>
+        <td style="font-weight:500;color:var(--adm-text)">${s.name}</td>
+        <td style="color:var(--adm-text2)">${s._school.name||'—'}</td>
+        <td style="color:var(--adm-text2)">${s._school.block||'—'}</td>
+        <td style="color:var(--adm-text2)">${s.class}</td>
+        <td><span style="color:var(--adm-red);font-weight:600">${s.days_absent}</span></td>
+        <td>${safeArr(s.signs).map(sg=>`<span class="badge badge-adm-warn" style="margin:1px;font-size:10px">${sg}</span>`).join('')}</td>
+        <td style="color:var(--adm-text3)">${fmtDate(s.date_identified)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--adm-green)">✓ All at-risk students have at least one intervention recorded.</td></tr>`;
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — SCHOOL CARDS
+═══════════════════════════════════════════ */
+function renderSchoolCards() {
+  const search = (document.getElementById('sc-search').value||'').toLowerCase();
+  const fDist  = document.getElementById('sc-district').value;
+  const fBlock = document.getElementById('sc-block').value;
+  const fRisk  = document.getElementById('sc-risk').value;
+
+  // Populate filters
+  const dists  = [...new Set(allSchools.map(s=>s.district).filter(Boolean))].sort();
+  const blks   = [...new Set(allSchools.map(s=>s.block).filter(Boolean))].sort();
+  const dsEl = document.getElementById('sc-district'), dv = dsEl.value;
+  const bkEl = document.getElementById('sc-block'),   bv = bkEl.value;
+  dsEl.innerHTML = '<option value="">All Districts</option>' + dists.map(d=>`<option${d===dv?' selected':''}>${d}</option>`).join('');
+  bkEl.innerHTML = '<option value="">All Blocks</option>' + blks.map(b=>`<option${b===bv?' selected':''}>${b}</option>`).join('');
+
+  let filtered = allSchools;
+  if (search)  filtered = filtered.filter(sc => sc.name.toLowerCase().includes(search) || (sc.udise||'').includes(search));
+  if (fDist)   filtered = filtered.filter(sc => sc.district === fDist);
+  if (fBlock)  filtered = filtered.filter(sc => sc.block === fBlock);
+
+  const grid = document.getElementById('school-cards-grid');
+  if (!filtered.length) { grid.innerHTML = '<div class="adm-empty" style="grid-column:1/-1"><div class="empty-icon">🏫</div><p>No schools match filters.</p></div>'; return; }
+
+  grid.innerHTML = filtered.map(sc => {
+    const scStuds  = allStudents.filter(s => s.school_id === sc.id);
+    const active   = scStuds.filter(s => !s.returned);
+    const ret      = scStuds.filter(s => s.returned);
+    const enrolled = parseInt(sc.enrolled)||0;
+    const rl       = blockRisk(active);
+    const rRate    = scStuds.length ? Math.round(ret.length/scStuds.length*100) : 0;
+    const riskPct  = enrolled ? Math.round(active.length/enrolled*100) : 0;
+    const withAct  = active.filter(s => safeArr(s.actions).length > 0).length;
+    const intRate  = active.length ? Math.round(withAct/active.length*100) : 100;
+    const ts       = topSign(active);
+    const fillCol  = rl==='high'?'#ef4444':rl==='med'?'#f59e0b':'#22c55e';
+    const rlBadge  = rl==='high'?'badge-adm-red':rl==='med'?'badge-adm-warn':'badge-adm-green';
+
+    if (fRisk && fRisk !== rl) return '';
+    return `<div class="sc-card">
+      <div class="sc-card-top">
+        <div class="sc-card-name">${sc.name}</div>
+        <div class="sc-card-udise">UDISE: ${sc.udise||'—'}</div>
+        <div class="sc-card-meta">📍 ${[sc.block,sc.district].filter(Boolean).join(' · ')||'Location not set'}</div>
+      </div>
+      <div class="sc-card-body">
+        <div class="sc-metrics">
+          <div class="sc-metric m-enroll"><div class="sc-metric-val">${enrolled||'—'}</div><div class="sc-metric-lbl">Enrolled</div></div>
+          <div class="sc-metric m-risk"><div class="sc-metric-val">${active.length}</div><div class="sc-metric-lbl">At-Risk</div></div>
+          <div class="sc-metric m-ret"><div class="sc-metric-val">${ret.length}</div><div class="sc-metric-lbl">Returned</div></div>
+        </div>
+        <div class="sc-risk-bar">
+          <div class="sc-risk-lbl"><span>Risk density</span><span>${riskPct}%</span></div>
+          <div class="sc-risk-track"><div class="sc-risk-fill" style="width:${Math.min(riskPct,100)}%;background:${fillCol}"></div></div>
+        </div>
+        ${ts!=='None'?`<div class="sc-top-sign">Top vulnerability: <strong>${ts}</strong></div>`:'<div class="sc-top-sign" style="color:var(--adm-text3)">No students flagged yet</div>'}
+        <div class="sc-footer">
+          <div class="sc-int-rate">Intervention coverage: <span>${intRate}%</span></div>
+          <span class="badge ${rlBadge}">${rl==='high'?'High Risk':rl==='med'?'Medium':'Low Risk'}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — CHILDREN TABLE
+═══════════════════════════════════════════ */
+function renderChildrenTable() {
+  const search  = (document.getElementById('ch-search').value||'').toLowerCase();
+  const fSchool = document.getElementById('ch-school').value;
+  const fBlock  = document.getElementById('ch-block').value;
+  const fSign   = document.getElementById('ch-sign').value;
+  const fStatus = document.getElementById('ch-status').value;
+  const fRisk   = document.getElementById('ch-risk').value;
+
+  // Populate filter dropdowns
+  const schNames = [...new Map(allStudents.map(s=>[s._school.id, s._school.name])).entries()].filter(([k,v])=>k&&v).sort((a,b)=>a[1].localeCompare(b[1]));
+  const blks     = [...new Set(allStudents.map(s=>s._school.block).filter(Boolean))].sort();
+  const scEl = document.getElementById('ch-school'), sv = scEl.value;
+  const bkEl = document.getElementById('ch-block'),  bv = bkEl.value;
+  scEl.innerHTML = '<option value="">All Schools</option>' + schNames.map(([id,nm])=>`<option value="${id}"${id===sv?' selected':''}>${nm}</option>`).join('');
+  bkEl.innerHTML = '<option value="">All Blocks</option>' + blks.map(b=>`<option${b===bv?' selected':''}>${b}</option>`).join('');
+
+  let filtered = [...allStudents];
+  if (search)  filtered = filtered.filter(s => s.name.toLowerCase().includes(search));
+  if (fSchool) filtered = filtered.filter(s => s._school.id === fSchool);
+  if (fBlock)  filtered = filtered.filter(s => s._school.block === fBlock);
+  if (fSign)   filtered = filtered.filter(s => safeArr(s.signs).includes(fSign));
+  if (fStatus === 'active')   filtered = filtered.filter(s => !s.returned);
+  if (fStatus === 'returned') filtered = filtered.filter(s => s.returned);
+  if (fRisk)   filtered = filtered.filter(s => riskLevel(s) === fRisk);
+
+  // Summary strip
+  const active = filtered.filter(s=>!s.returned).length;
+  const ret    = filtered.filter(s=>s.returned).length;
+  document.getElementById('ch-summary').innerHTML = `
+    <div class="ss-pill">Showing <strong>${filtered.length}</strong> students</div>
+    <div class="ss-pill">At-Risk: <strong style="color:var(--adm-red)">${active}</strong></div>
+    <div class="ss-pill">Returned: <strong style="color:var(--adm-green)">${ret}</strong></div>
+    <div class="ss-pill">High Risk: <strong style="color:var(--adm-red)">${filtered.filter(s=>riskLevel(s)==='high').length}</strong></div>`;
+
+  const tbody = document.getElementById('children-tbody');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--adm-text3)">No students match the selected filters.</td></tr>`; return; }
+  tbody.innerHTML = filtered.slice(0,200).map((s,i) => {
+    const sg = safeArr(s.signs), ac = safeArr(s.actions), rl = riskLevel(s);
+    const rlBadge = rl==='high'?'badge-adm-red':rl==='med'?'badge-adm-warn':'badge-adm-green';
+    return `<tr>
+      <td style="color:var(--adm-text3)">${i+1}</td>
+      <td><div style="font-weight:500;color:var(--adm-text)">${s.name}</div><div style="font-size:10px;color:var(--adm-text3)">${s.gender||''}</div></td>
+      <td style="font-size:12px;color:var(--adm-text2)">${s._school.name||'—'}</td>
+      <td style="color:var(--adm-text3)">${s._school.block||'—'}</td>
+      <td>${s.class}</td>
+      <td><span style="font-weight:700;color:${s.days_absent>=7?'var(--adm-red)':s.days_absent>=5?'var(--adm-accent)':'var(--adm-text)'}">${s.days_absent}</span></td>
+      <td style="max-width:160px">${sg.map(x=>`<span class="badge badge-adm-warn" style="margin:1px;font-size:10px">${x}</span>`).join('')||'—'}</td>
+      <td>${ac.length?`<span class="badge badge-adm-blue">${ac.length} actions</span>`:'<span class="badge badge-adm-red">None</span>'}</td>
+      <td style="color:var(--adm-text3)">${fmtDate(s.date_identified)}</td>
+      <td>${s.returned?'<span class="badge badge-adm-green">Returned</span>':'<span class="badge badge-adm-red">At-Risk</span>'}</td>
+      <td><span class="badge ${rlBadge}">${rl==='high'?'High':rl==='med'?'Med':'Low'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — CONSOLIDATED REPORT
+═══════════════════════════════════════════ */
+function renderConsolidatedReport() {
+  document.getElementById('consol-tbody').innerHTML = allStudents.map((s,i) => {
+    const sg = safeArr(s.signs), ac = safeArr(s.actions);
+    return `<tr>
+      <td>${i+1}</td>
+      <td style="font-weight:500;color:var(--adm-text)">${s.name}</td>
+      <td>${s._school.name||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${s._school.udise||'—'}</td>
+      <td>${s._school.block||'—'}</td>
+      <td>${s._school.district||'—'}</td>
+      <td>${s.class}</td>
+      <td>${s.days_absent}</td>
+      <td style="font-size:11px">${sg.join('; ')||'—'}</td>
+      <td style="font-size:11px">${ac.join('; ')||'None'}</td>
+      <td>${fmtDate(s.date_identified)}</td>
+      <td>${s.returned?'Yes':'No'}</td>
+      <td>${s.returned?fmtDate(s.date_returned):'—'}</td>
+      <td style="font-size:11px">${s.return_reason||'—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--adm-text3)">No records yet.</td></tr>`;
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN — GROUP HELPERS
+═══════════════════════════════════════════ */
+function groupByBlock() {
+  const map = {};
+  allStudents.forEach(s => {
+    const block = s._school.block || 'Unspecified';
+    if (!map[block]) map[block] = { schools: new Set(), all: [], active: [], ret: [] };
+    map[block].schools.add(s.school_id);
+    map[block].all.push(s);
+    if (s.returned) map[block].ret.push(s); else map[block].active.push(s);
+  });
+  return map;
+}
+
+function groupByDistrict() {
+  const map = {};
+  allStudents.forEach(s => {
+    const dist = s._school.district || 'Unspecified';
+    if (!map[dist]) map[dist] = { blocks: new Set(), schools: new Set(), active: [], ret: [] };
+    map[dist].blocks.add(s._school.block||'');
+    map[dist].schools.add(s.school_id);
+    if (s.returned) map[dist].ret.push(s); else map[dist].active.push(s);
+  });
+  return map;
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+async function init() {
+  updateSyncUI();
+
+  // Check admin session
+  if (localStorage.getItem('ews_admin_session') === '1') {
+    try {
+      document.getElementById('loading-overlay').querySelector('.load-txt').textContent = 'Loading admin data…';
+      await startAdminApp();
+      hideLO(); return;
+    } catch(e) { localStorage.removeItem('ews_admin_session'); }
+  }
+
+  // Check school session
+  const cached = getCachedSchool();
+  if (cached) {
+    try {
+      if (isOnline) {
+        const live = await sbFetch(`schools?id=eq.${cached.id}&select=*`);
+        if (live?.length) { await startSchoolApp(live[0]); hideLO(); return; }
+      } else {
+        await startSchoolApp(cached); hideLO(); return;
+      }
+    } catch(e) { console.warn('Session restore failed:', e); }
+  }
+
+  hideLO();
+  document.getElementById('auth-screen').classList.add('show');
+}
+
+function hideLO() {
+  const lo = document.getElementById('loading-overlay');
+  lo.classList.add('fade');
+  setTimeout(() => lo.style.display = 'none', 400);
+}
+
+init();
+</script>
+</body>
+</html>
